@@ -330,7 +330,6 @@ const filteredData = useMemo(() => {
       {!loading && !error && (
         <div>
           {/* Render your dashboard data here */}
-          <p>Data loaded successfully.</p>
         </div>
       )}
     </div>
@@ -346,7 +345,7 @@ const filteredData = useMemo(() => {
             </Grid>
             ) : (
                 <>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={6} >
           <Demographics 
             key={`demographics-${selectedYear}-${filteredData.length}`}
             data={filteredData} 
@@ -374,7 +373,7 @@ const filteredData = useMemo(() => {
             chartRefs={lifestyleAndBehaviourRefs}
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} >
           <SocialAndTechnologicalFactors 
             key={`demographics-${selectedYear}-${filteredData.length}`}
             data={filteredData} 

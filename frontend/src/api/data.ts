@@ -4,7 +4,7 @@ import axios from 'axios';
 
 export const submitQuestionaire = async (data: QuestionarieData) => {
   try {
-    const response = await axios.post(`http://localhost:8000/api/submit/${data.source.toLowerCase()}`, data);
+    const response = await axios.post(`/api/submit/${data.source.toLowerCase()}`, data);
     return response.data;
   } catch (error) {
     throw error;
@@ -13,7 +13,7 @@ export const submitQuestionaire = async (data: QuestionarieData) => {
 
 export const loadCourses = async (university: string): Promise<string[]> => {
   try {
-    const response = await fetch(`http://localhost:8000/api/courses/${university}`);
+    const response = await fetch(`/api/courses/${university}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch courses: ${response.statusText}`);
     }
@@ -28,7 +28,7 @@ export const loadCourses = async (university: string): Promise<string[]> => {
 export const loadDepartments = async (university: string): Promise<string[]> => {
   try {
     if (university != 'All'){
-      const response = await fetch(`http://localhost:8000/api/departments/${university}`);
+      const response = await fetch(`/api/departments/${university}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch departments: ${response.statusText}`);
       }
@@ -44,7 +44,7 @@ export const loadDepartments = async (university: string): Promise<string[]> => 
 };
 
 export async function getDashboardData(university: string = 'All'): Promise<DashboardData[]> {
-  const response = await fetch(`http://localhost:8000/api/dashboard?university=${university}`);
+  const response = await fetch(`/api/dashboard?university=${university}`);
   
   if (!response.ok) {
       throw new Error('Failed to fetch dashboard data');
@@ -92,7 +92,7 @@ export const generateReport = async (filteredData: DashboardData[], chartImages:
     console.log(`Number of charts being sent: ${Object.keys(processedChartImages).length}`);
     console.log('Sending payload:', JSON.stringify(payload, null, 2));
 
-    const response = await fetch('http://localhost:8000/api/reports', {
+    const response = await fetch(`/api/reports`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -113,7 +113,7 @@ export const generateReport = async (filteredData: DashboardData[], chartImages:
 
 export const viewReport = async (timestamp: string): Promise<Blob> => {
   try {
-    const response = await axios.get(`http://localhost:8000/api/reports/view/${timestamp}`, {
+    const response = await axios.get(`/api/reports/view/${timestamp}`, {
       responseType: 'blob', // Important to handle binary data
     });
     return response.data;
@@ -125,7 +125,7 @@ export const viewReport = async (timestamp: string): Promise<Blob> => {
 
 export const deleteReport = async (timestamp: string): Promise<void> => {
   try {
-    await axios.delete(`http://localhost:8000/api/reports/delete/${timestamp}`);
+    await axios.delete(`/api/reports/delete/${timestamp}`);
   } catch (error) {
     console.error('Error deleting report:', error);
     throw new Error(`Failed to delete report: ${error.message}`);

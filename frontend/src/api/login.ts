@@ -3,10 +3,11 @@ interface ApiResponse {
     isAdmin: boolean;
     university: string;
     token: string;
-  }
-  
-  export async function saveLoginData(data: { email: string; password: string }): Promise<ApiResponse> {
-    const response = await fetch('http://localhost:8000/api/login', {
+}
+
+
+export async function saveLoginData(data: { email: string; password: string }): Promise<ApiResponse> {
+    const response = await fetch(`/api/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -30,7 +31,7 @@ interface RegisterFormData {
 
 export async function registerUser(data: RegisterFormData): Promise<ApiResponse> {
     try {
-        const response = await fetch('http://localhost:8000/api/register', {
+        const response = await fetch(`/api/register`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -58,7 +59,7 @@ export async function registerUser(data: RegisterFormData): Promise<ApiResponse>
 
 export async function deleteUser(email: string): Promise<ApiResponse> {
     try {
-        const response = await fetch(`http://localhost:8000/api/deleteUser?email=${encodeURIComponent(email.trim())}`, {
+        const response = await fetch(`/api/deleteUser?email=${encodeURIComponent(email.trim())}`, {
         method: 'DELETE',
         headers: {
             'Access-Control-Allow-Origin': '*',
