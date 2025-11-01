@@ -11,7 +11,7 @@ export default function ClientLayout({
 }>) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
-  const publicRoutes = ['/login', '/', '/ual', '/sol'];
+  const publicRoutes = ['/login', '/', '/ual', '/sol', '/webhook'];
 
   useEffect(() => {
     setMounted(true);
