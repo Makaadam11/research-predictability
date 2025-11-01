@@ -17,6 +17,7 @@ from models import GoogleFormsTranslationMap, QuestionnaireDataModel, DashboardD
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from data_processor import DataProcessor
+from pathlib import Path
 
 app = FastAPI()
 
@@ -37,6 +38,8 @@ BASIC_USER = os.environ.get("BASIC_AUTH_USER")
 BASIC_PASS = os.environ.get("BASIC_AUTH_PASS")
 ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET")
+
+base_path = Path("/data")
 
 class RegisterFormInputs(BaseModel):
     email: str
@@ -136,7 +139,7 @@ async def generate_reports(request: ReportRequest):
                 chart_images[key] = chart
         
         # Generate PDF report and save it temporarily
-        report_path = f"../data/reports/Mental_Health_Report_{timestamp}.pdf"
+        report_path = f"{base_path}/reports/Mental_Health_Report_{timestamp}.pdf"
         reports.generate_pdf_report(report_path, chart_images)
         
         return {"message": "Report generated", "report_url": f"/api/reports/view/{timestamp}"}
@@ -146,7 +149,7 @@ async def generate_reports(request: ReportRequest):
     
 @app.get("/api/reports/view/{timestamp}")
 async def view_report(timestamp: str):
-    report_path = f"../data/reports/Mental_Health_Report_{timestamp}.pdf"
+    report_path = f"{base_path}/reports/Mental_Health_Report_{timestamp}.pdf"
     if os.path.exists(report_path):
         return FileResponse(report_path, media_type='application/pdf', filename=f"Mental_Health_Report_{timestamp}.pdf")
     else:
@@ -154,7 +157,7 @@ async def view_report(timestamp: str):
 
 @app.delete("/api/reports/delete/{timestamp}")
 async def delete_report(timestamp: str):
-    report_path = f"../data/reports/Mental_Health_Report_{timestamp}.pdf"
+    report_path = f"{base_path}/reports/Mental_Health_Report_{timestamp}.pdf"
     if os.path.exists(report_path):
         os.remove(report_path)
         return {"message": "Report deleted"}
@@ -213,7 +216,7 @@ async def security_gate(request: Request, call_next):
 async def get_courses(university: str):
     try:
         # Construct file path
-        file_path = f"../data/{university.lower()}/{university.lower()}_courses.xlsx"
+        file_path = f"{base_path}/{university.lower()}/{university.lower()}_courses.xlsx"
         
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail=f"Course file not found for {university}")
@@ -235,7 +238,7 @@ async def get_courses(university: str):
 async def get_departments(university: str):
     print(university )
     try:
-        file_path = f"../data/{university.lower()}/{university.lower()}_courses.xlsx"
+        file_path = f"{base_path}/{university.lower()}/{university.lower()}_courses.xlsx"
         
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail=f"Course file not found for {university}")
@@ -260,7 +263,7 @@ async def get_departments(university: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 def get_user_data():
-    file_path = "../data/login/login_data.xlsx"
+    file_path = f"{base_path}/login/login_data.xlsx"
     if os.path.exists(file_path):
         df = pd.read_excel(file_path, header=0)
         return df
@@ -305,7 +308,7 @@ async def login(data: LoginFormInputs):
         raise HTTPException(status_code=500, detail=f"Login error: {str(e)}")
 
 def save_user_data(df):
-    file_path = "../data/login/login_data.xlsx"
+    file_path = f"{base_path}/login/login_data.xlsx"
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     df.to_excel(file_path, index=False)
 
@@ -383,7 +386,7 @@ def process_excel_data(df: pd.DataFrame) -> pd.DataFrame:
 @app.get("/api/dashboard")
 async def get_dashboard_data(university: str = Query(None)):
     try:
-        file_path = "../data/merged/merged_data.xlsx"
+        file_path = f"{base_path}/merged/merged_data.xlsx"
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="Data file not found")
         

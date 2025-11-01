@@ -8,7 +8,7 @@ import numpy as np
 
 class DataProcessor:
     def __init__(self):
-        self.base_path = Path("data")
+        self.base_path = Path("/data")
         self.selected_columns = [
             'stress_in_general', 'stress_before_exams', 
             'level_of_study', 'timetable_impact',
@@ -64,7 +64,7 @@ class DataProcessor:
         }
         
     @staticmethod
-    def append_row_to_excel(excel_path, data_dict):
+    def append_row_to_excel(self, excel_path, data_dict):
         if os.path.exists(excel_path):
             # Read full file with first row as header
             df = pd.read_excel(excel_path, header=0)
@@ -137,7 +137,7 @@ class DataProcessor:
             df.to_excel(excel_path, index=False)
     
     @staticmethod
-    def save_and_evaluate(data, university: str):
+    def save_and_evaluate(self, data, university: str):
         try:
             # Convert model to dict
             data_dict = data.dict()
@@ -149,8 +149,8 @@ class DataProcessor:
             data_dict['captured_at'] = datetime.now().strftime('%d.%m.%Y %H:%M')
             
             # Paths to Excel files
-            university_excel_path = f"../data/{university.lower()}/{university.lower()}_data/{university.lower()}_data.xlsx"
-            merged_excel_path = "../data/merged/merged_data.xlsx"
+            university_excel_path = self.base_path / university.lower() / f"{university.lower()}_data" / f"{university.lower()}_data.xlsx"
+            merged_excel_path = self.base_path / "merged" / "merged_data.xlsx"
             
             # Append row to both university-specific and merged Excel files
             DataProcessor.append_row_to_excel(university_excel_path, data_dict)
@@ -243,7 +243,7 @@ class DataProcessor:
                     continue
                 
                 source_df = df_merged[df_merged['Source'] == source].copy()
-                source_excel_path = f"../data/{source_str.lower()}/{source_str.lower()}_data/{source_str.lower()}_data.xlsx"
+                source_excel_path = f"{self.base_path}/{source_str.lower()}/{source_str.lower()}_data/{source_str.lower()}_data.xlsx"
 
                 # Add empty row at the beginning
                 source_df.loc[-1] = [None] * len(source_df.columns)

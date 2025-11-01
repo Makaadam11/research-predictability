@@ -1,10 +1,14 @@
 import { QuestionarieData } from '@/types/QuestionaireTypes';
 import { DashboardData } from '@/types/dashboard';
 import axios from 'axios';
+import app from 'next/app';
+
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000';
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 export const submitQuestionaire = async (data: QuestionarieData) => {
   try {
-    const response = await axios.post(`http://localhost:8000/api/submit/${data.source.toLowerCase()}`, data);
+    const response = await axios.post(`${API_BASE_URL}/api/submit/${data.source.toLowerCase()}`, data);
     return response.data;
   } catch (error) {
     throw error;
@@ -105,7 +109,7 @@ export const generateReport = async (filteredData: DashboardData[], chartImages:
     }
     
     return responseData;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating report:', error);
     throw new Error(`Failed to generate report: ${error.message}`);
   }
@@ -117,7 +121,7 @@ export const viewReport = async (timestamp: string): Promise<Blob> => {
       responseType: 'blob', // Important to handle binary data
     });
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error viewing report:', error);
     throw new Error(`Failed to view report: ${error.message}`);
   }
@@ -126,8 +130,72 @@ export const viewReport = async (timestamp: string): Promise<Blob> => {
 export const deleteReport = async (timestamp: string): Promise<void> => {
   try {
     await axios.delete(`http://localhost:8000/api/reports/delete/${timestamp}`);
-  } catch (error) {
+  } catch (error  : any) {
     console.error('Error deleting report:', error);
     throw new Error(`Failed to delete report: ${error.message}`);
   }
 };
+
+interface QualtricsData {
+  university: string;
+  responses: any;
+}
+
+
+export async function forwardToBackend(qualtricsData: QualtricsData) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/submit/${qualtricsData.university}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(qualtricsData.responses),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to forward data to backend');
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error forwarding to backend:', error);
+    throw error;
+  }
+}
+
+export async function handleQualtricsWebhook(request: Request) {
+  try {
+
+    const requestBody = await request.json();
+
+    console.log('Received webhook data:', request);
+
+    const processedData: QualtricsData = {
+      university: requestBody?.university || 'unknown',
+      responses: requestBody?.responses || []
+    };
+
+    const secret = request.headers?.get('X-Webhook-Secret');
+    if (WEBHOOK_SECRET && secret !== WEBHOOK_SECRET) {
+      throw new Error('Invalid webhook secret');
+    }
+
+    console.log('Received webhook data:', processedData);
+
+    // Przekaż do backendu
+    // const result = await forwardToBackend(processedData);
+    
+    return {
+      success: true,
+      message: 'Data processed successfully',
+      // result
+    };
+  } catch (error: any) {
+    console.error('Webhook processing error:', error);
+    return {
+      success: false,
+      message: 'Failed to process webhook data',
+      error: error.message
+    };
+  }
+}

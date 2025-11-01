@@ -34,7 +34,6 @@ export async function registerUser(data: RegisterFormData): Promise<ApiResponse>
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
         },
         body: JSON.stringify({
             email: data.email.trim(),
