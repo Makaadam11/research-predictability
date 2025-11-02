@@ -28,6 +28,8 @@ export const HoursPerWeekChart = ({ data, dataKey, title }: HoursPerWeekChartPro
     return acc;
   }, [] as { hours: number; prediction_0: number; prediction_1: number }[]);
 
+  groupedData.unshift({hours: 0, prediction_0: 0, prediction_1: 0});
+
   return (
     <Box>
       <Typography variant="h6" align="center" gutterBottom>
@@ -36,7 +38,14 @@ export const HoursPerWeekChart = ({ data, dataKey, title }: HoursPerWeekChartPro
     <ResponsiveContainer width="100%" height={350}>
     <AreaChart data={groupedData}>
       <CartesianGrid strokeDasharray="3 3" />
-      <XAxis dataKey="hours" angle={60} dy={10} dx={5}  interval={3}/>
+      <XAxis dataKey="hours" angle={60} height={50} dy={10} dx={5}  interval={3}                    
+      label={{ value: 'Hours', position: 'Bottom', dy: 20 }}/>
+        <YAxis 
+            label={{ value: 'Nr. of Students', angle: -90, position: 'Center',dx: -20 }}
+            interval={1}
+            tickFormatter={(value) => value.toFixed(0)}
+            tickCount={10}
+        />
       <YAxis />
       <Tooltip />
       <Area type="monotone" dataKey="prediction_0" name="No MH Issues" stackId="1" stroke="#82ca9d" fill="#82ca9d" />

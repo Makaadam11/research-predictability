@@ -7,6 +7,7 @@ interface MentalHealthActivitiesChartProps {
   data: DashboardData[];
 }
 
+
 export const MentalHealthActivitiesChart = ({ data }: MentalHealthActivitiesChartProps) => {
   const words = data.reduce((acc, curr) => {
     if (curr.mental_health_activities === "Not Provided") return acc;
@@ -20,7 +21,9 @@ export const MentalHealthActivitiesChart = ({ data }: MentalHealthActivitiesChar
       }
     });
     return acc;
-  }, [] as { text: string; value: number }[]);
+  }, [] as { text: string; value: number }[])    
+  .sort((a, b) => b.value - a.value) // Sort by frequency
+  .slice(0, 50); // change to select number of top records
 
   return (
     <Box>

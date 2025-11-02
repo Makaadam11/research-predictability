@@ -12,6 +12,10 @@ export default {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
+      fontFamily: {
+        sans: ['Georgia', 'Times New Roman', 'Times', 'serif'],
+        serif: ['Georgia', 'Times New Roman', 'Times', 'serif'],
+      },
     },
   },
   plugins: [],

@@ -28,6 +28,8 @@ export const HoursSocialMediaChart = ({ data }: HoursSocialMediaChartProps) => {
     }, [] as { hours_socialmedia: number; prediction_0: number; prediction_1: number }[])
     .sort((a, b) => a.hours_socialmedia - b.hours_socialmedia); // Sort by hours
 
+  groupedData.unshift({hours_socialmedia: 0, prediction_0: 0, prediction_1: 0});
+
   return (
     <Box>
       <Typography variant="h6" align="center" gutterBottom>
@@ -38,11 +40,14 @@ export const HoursSocialMediaChart = ({ data }: HoursSocialMediaChartProps) => {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis 
             dataKey="hours_socialmedia"
-            label={{ value: 'Hours', position: 'bottom' }}
+            label={{ value: 'Hours', position: 'Bottom', dy: 20 }}
             dy={10} height={50} interval={1}
           />
           <YAxis 
-            label={{ value: 'Number of Students', angle: -90, position: 'insideLeft' }}
+            label={{ value: 'Nr. of Students', angle: -90, position: 'Center',dx: -20 }}
+            interval={1}
+            tickFormatter={(value) => value.toFixed(0)}
+            tickCount={20}
           />
           <Tooltip />
           <Area 

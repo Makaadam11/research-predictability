@@ -40,8 +40,8 @@ export default function Questionaire({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setIsSubmitted(true); // Set submitted state immediately
+    setIsSubmitting(true)
     setError(null);
   
     const answers = questions.map(question => ({
@@ -49,6 +49,7 @@ export default function Questionaire({
       answer: formData[question.id]
     }));
   
+    // Submit in the background without waiting
     submitQuestionaire({
       answers,
       source: university.toUpperCase()

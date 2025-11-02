@@ -28,32 +28,55 @@ export const loadCourses = async (university: string): Promise<string[]> => {
   }
 };
 
-export const loadDepartments = async (university: string): Promise<string[]> => {
+export const loadDepartments = async (university: string): Promise<any> => {
   try {
-    if (university != 'All'){
-      const response = await fetch(`/api/departments/${university}`);
+    console.log(`Loading departments for university: ${university}`);
+    
+    if (university === 'All') {
+      // For "All", use the special endpoint
+      const response = await fetch(`http://localhost:8000/api/departments/All`);
       if (!response.ok) {
+        console.error(`Failed to fetch all departments: ${response.statusText}`);
+        throw new Error(`Failed to fetch all departments: ${response.statusText}`);
+      }
+      const data = await response.json();
+      console.log('All departments data received:', data);
+      return data;
+    } else {
+      // For specific universities
+      const response = await fetch(`http://localhost:8000/api/departments/${university}`);
+      if (!response.ok) {
+        console.error(`Failed to fetch departments for ${university}: ${response.statusText}`);
         throw new Error(`Failed to fetch departments: ${response.statusText}`);
       }
       const data = await response.json();
-      console.log(data.departments);
+      console.log(`Departments for ${university} received:`, data);
       return data;
     }
-    return [];
   } catch (error) {
-    console.error('Error loading courses:', error);
-    return [];
+    console.error('Error loading departments:', error);
+    return { departments: {} };
   }
 };
 
-export async function getDashboardData(university: string = 'All'): Promise<DashboardData[]> {
-  const response = await fetch(`/api/dashboard?university=${university}`);
-  
-  if (!response.ok) {
+export async function getDashboardData(university: string = 'All'): Promise<any> {
+  try {
+    console.log(`Getting dashboard data for university: ${university}`);
+    const response = await fetch(`http://localhost:8000/api/dashboard?university=${university}`);
+    
+    if (!response.ok) {
+      const error = await response.text();
+      console.error(`Error fetching dashboard data: ${error}`);
       throw new Error('Failed to fetch dashboard data');
+    }
+    
+    const data = await response.json();
+    console.log(`Dashboard data received for ${university}: ${data.data.length} records`);
+    return data;
+  } catch (error) {
+    console.error('Error in getDashboardData:', error);
+    throw error;
   }
-  
-  return response.json();
 }
 
 export const generateReport = async (filteredData: DashboardData[], chartImages: { [key: string]: string }) => {

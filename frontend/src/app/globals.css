@@ -17,5 +17,22 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
+/* Apply Georgia font to all elements */
+* {
+  font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
+/* Override Material-UI components */
+.MuiTypography-root,
+.MuiButton-root,
+.MuiInputBase-root,
+.MuiMenuItem-root,
+.MuiListItemText-root,
+.MuiFormLabel-root,
+.MuiSelect-select,
+.MuiInputLabel-root {
+  font-family: Georgia, 'Times New Roman', Times, serif !important;
 }

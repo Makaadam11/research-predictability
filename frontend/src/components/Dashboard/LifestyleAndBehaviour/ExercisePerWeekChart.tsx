@@ -23,6 +23,7 @@ export const ExercisePerWeekChart = ({ data }: ExercisePerWeekChartProps) => {
     return acc;
   }, [] as { exercise_per_week: number; prediction_0: number; prediction_1: number }[]);
 
+  groupedData.unshift({exercise_per_week: 0, prediction_0: 0, prediction_1: 0});
   return (
     <Box>
       <Typography variant="h6" align="center" gutterBottom>
@@ -31,8 +32,14 @@ export const ExercisePerWeekChart = ({ data }: ExercisePerWeekChartProps) => {
     <ResponsiveContainer width="100%" height={350}>
       <LineChart data={groupedData}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="exercise_per_week" dy={10} height={40} interval={0}/>
-        <YAxis />
+        <XAxis dataKey="exercise_per_week" dy={10} height={50} interval={0}
+        label={{ value: 'Nr. of Exercises', position: 'Bottom', dy: 20 }}/>
+        <YAxis 
+            label={{ value: 'Nr. of Students', angle: -90, position: 'Center',dx: -20 }}
+            interval={1}
+            tickFormatter={(value) => value.toFixed(0)}
+            tickCount={8}
+        />
         <Tooltip />
         <Line type="monotone" dataKey="prediction_0" name="No MH Issues" stroke="#82ca9d" />
         <Line type="monotone" dataKey="prediction_1" name="MH Issues" stroke="#ff0000" />
