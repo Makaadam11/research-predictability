@@ -209,7 +209,7 @@ async def delete_report(timestamp: str):
         return {"message": "Report deleted"}
     else:
         raise HTTPException(status_code=404, detail="Report not found")
-
+    
 
 @app.get("/api/courses/{university}", response_model=CourseResponse)
 async def get_courses(university: str):
@@ -231,6 +231,97 @@ async def get_courses(university: str):
             "university": university
         }
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/universities", response_model=List[str])
+async def get_universities():
+    try:
+        file_path = "../data/universities/universities.xlsx"
+        
+        if not os.path.exists(file_path):
+            print(f"Universities file not found at {file_path}")
+            raise HTTPException(status_code=404, detail="Universities file not found")
+        
+        # Read Excel file
+        print(f"Reading universities from {file_path}")
+        df = pd.read_excel(file_path)
+        
+        # Debug the dataframe
+        print(f"DataFrame shape: {df.shape}")
+        print(f"DataFrame columns: {df.columns.tolist()}")
+        print(f"DataFrame first few rows: {df.head().to_string()}")
+        
+        # Extract universities as a list
+        universities = df.iloc[:, 0].dropna().unique().tolist()
+        
+        print(f"Extracted universities: {universities}")
+        
+        # If UAL is missing, add it manually
+        if 'UAL' not in universities:
+            universities.append('UAL')
+            print("Added UAL to universities list")
+            
+        return universities
+    except Exception as e:
+        print(f"Error in get_universities: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/departments/All", response_model=DepartmentCoursesResponse)
+async def get_all_departments():
+    try:
+        # Get list of universities first
+        file_path = "../data/universities/universities.xlsx"
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Universities file not found")
+        
+        df_unis = pd.read_excel(file_path)
+        universities = df_unis.iloc[:, 0].dropna().unique().tolist()
+        
+        # Ensure both UAL and SOL are included
+        if 'UAL' not in universities:
+            universities.append('UAL')
+        if 'SOL' not in universities:
+            universities.append('SOL')
+            
+        print(f"Processing universities for departments: {universities}")
+        
+        all_departments = {}
+        
+        # Loop through each university to collect departments and courses
+        for university in universities:
+            try:
+                print(f"Processing university: {university}")
+                uni_file_path = f"../data/{university.lower()}/{university.lower()}_courses.xlsx"
+                
+                if os.path.exists(uni_file_path):
+                    print(f"Found course file for {university}")
+                    df = pd.read_excel(uni_file_path)
+                    
+                    for index, row in df.iterrows():
+                        department = str(row['Departments']).strip() if pd.notna(row['Departments']) else None
+                        course = str(row['Courses']).strip() if pd.notna(row['Courses']) else None
+                        
+                        if department and course:
+                            # Add university prefix to department name for clarity
+                            dept_key = f"{university} - {department}"
+                            
+                            if dept_key not in all_departments:
+                                all_departments[dept_key] = []
+                            
+                            all_departments[dept_key].append(course)
+                else:
+                    print(f"Course file not found for {university}: {uni_file_path}")
+            except Exception as e:
+                print(f"Error processing university {university}: {str(e)}")
+                continue
+        
+        print(f"All departments: {all_departments.keys()}")
+        return {
+            "university": "All",
+            "departments": all_departments
+        }
+    except Exception as e:
+        print(f"Error in get_all_departments: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/departments/{university}", response_model=DepartmentCoursesResponse)
@@ -410,33 +501,3 @@ async def get_dashboard_data(university: str = Query(None)):
             status_code=500, 
             detail={"error": "Failed to fetch dashboard data", "details": str(e)}
         )
-
-@app.post("/webhook")
-async def webhook(request: Request):
-    data = await request.json()
-    university = data.get("university") or "UAL"
-    form_answers = data.get("answers") or data.get("formData") or data.get("namedValues") or {}
-
-    mapped_data = {}
-    for key, value in form_answers.items():
-        if key in GoogleFormsTranslationMap:
-            mapped_field = GoogleFormsTranslationMap[key]
-            mapped_data[mapped_field] = value
-        else:
-            print(f"Unmapped question: {key}")
-
-    questionnaire_data = QuestionnaireDataModel(
-        answers=[{"id": k, "answer": v} for k, v in mapped_data.items()],
-        source= university
-    )
-    
-    return await webhook_submit_questionnaire(university, questionnaire_data)
-
-async def webhook_submit_questionnaire(university: str, data: QuestionnaireDataModel):
-    try:
-        if DataProcessor.save_and_evaluate(data, university):
-            return {"status": "success", "message": "Survey submitted successfully"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to save survey data")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))

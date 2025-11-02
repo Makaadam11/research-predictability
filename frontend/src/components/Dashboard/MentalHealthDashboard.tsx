@@ -116,13 +116,15 @@ const MentalHealthDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
-
+  }, []); // Remove selectedUniversity dependency to prevent re-fetch on university change
+  
+  // Update the fetchData function
   const fetchData = async () => {
     try {
       setLoading(true);
-      console.log('Fetching data for all universities');
-      const response = await getDashboardData('All');
+      console.log(`Fetching data for ${selectedUniversity === 'All' ? 'all universities' : selectedUniversity}`);
+      
+      const response = await getDashboardData(selectedUniversity);
       const dashboardData = response?.data || [];
       
       if (!Array.isArray(dashboardData)) {
@@ -131,7 +133,7 @@ const MentalHealthDashboard: React.FC = () => {
       
       setData(dashboardData as DashboardData[]);
       setError(null);
-      console.log('Data fetched successfully:', dashboardData);
+      console.log('Data fetched successfully:', dashboardData.length);
     } catch (err) {
       console.error('Fetch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
@@ -140,125 +142,124 @@ const MentalHealthDashboard: React.FC = () => {
       setLoading(false);
     }
   };
-
-  const handleYearChange = (year: string) => {
-    console.log('Year changing to:', year);
-    setSelectedYear(year);
+  
+  // Make sure handleUniversityChange resets filters properly
+  const handleUniversityChange = (university: string) => {
+    if (university !== selectedUniversity) {
+      setSelectedUniversity(university);
+      
+      // Reset filters when changing university
+      setFilters(prevFilters => ({
+        ...prevFilters,
+        course_of_study: [] // Reset course filter
+      }));
+      
+      // Fetch data for the new university without triggering a page reload
+    }
   };
 
-  const handleUniversityChange = (university: string) => {
-    setSelectedUniversity(university);
+  const handleYearChange = (year: string) => {
+    setSelectedYear(year);
   };
 
   const handleFilterChange = useCallback((key: keyof FilterState, value: string[]) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   }, []);
 
-// 1. Add getAcademicYear helper
-const getAcademicYear = (dateString: string | undefined) => {
-  if (!dateString) {
-    console.error("Date string is undefined");
-    return null;
-  }
+  const getAcademicYear = (dateString: string | undefined) => {
+    if (!dateString) {
+      console.error("Date string is undefined");
+      return null;
+    }
 
-  // Handle date format dd.MM.yyyy HH:mm
-  const [datePart] = dateString.split(" ");
-  const [day, month, year] = datePart.split(".").map(Number);
-  console.log('Date parts:', { day, month, year });
+    // Handle date format dd.MM.yyyy HH:mm
+    const [datePart] = dateString.split(" ");
+    const [day, month, year] = datePart.split(".").map(Number);
 
-  if (isNaN(day) || isNaN(month) || isNaN(year)) {
-    console.error("Invalid date parts:", { day, month, year });
-    return null;
-  }
+    if (isNaN(day) || isNaN(month) || isNaN(year)) {
+      console.error("Invalid date parts:", { day, month, year });
+      return null;
+    }
 
-  const academicYear = month >= 9 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-  console.log('Calculated academic year:', academicYear);
-  return academicYear;
-};
+    const academicYear = month >= 9 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+    return academicYear;
+  };
 
-const filteredData = useMemo(() => {
-  console.log('Filtering data:', {
-    dataLength: data.length,
-    selectedYear,
-    selectedUniversity,
-    filters
-  });
+  const filteredData = useMemo(() => {
+    // console.log('Filtering data:', {
+    //   dataLength: data.length,
+    //   selectedYear,
+    //   selectedUniversity,
+    //   filters
+    // });
+  
+    if (!Array.isArray(data) || data.length === 0) {
+      console.log('No data to filter');
+      return [];
+    }
+  
+    // If no departments are selected, return an empty array
+    if (selectedUniversity !== 'All' && filters.course_of_study.length === 0) {
+      return [];
+    }
+  
+    return data.filter(item => {
+      if (!item?.captured_at) return false;
+  
+      const academicYear = getAcademicYear(item.captured_at);
+  
+      const matchesYear = selectedYear === 'All' || academicYear === selectedYear;
+      const matchesUniversity = selectedUniversity === 'All' || item.source === selectedUniversity;
+  
+      if (!matchesYear || !matchesUniversity) return false;
+  
+      const matchesFilter = (key: keyof FilterState, value: any) => {
+        if (!filters[key] || filters[key].length === 0) return true;
+        const matches = filters[key].includes(value);
+        return matches;
+      };
 
-  if (!Array.isArray(data) || data.length === 0) {
-    console.log('No data to filter');
-    return [];
-  }
-
-  return data.filter(item => {
-    if (!item?.captured_at) return false;
-
-    const academicYear = getAcademicYear(item.captured_at);
-    console.log('Item year:', { date: item.captured_at, academicYear });
-
-    const matchesYear = academicYear === selectedYear;
-    const matchesUniversity = selectedUniversity === 'All' || item.source === selectedUniversity;
-
-    console.log('Item:', {
-      date: item.captured_at,
-      academicYear,
-      selectedYear,
-      matchesYear,
-      university: item.source,
-      matchesUniversity
+      return (
+        matchesFilter('ethnic_group', item.ethnic_group) &&
+        matchesFilter('home_country', item.home_country) &&
+        matchesFilter('age', item.age) &&
+        matchesFilter('gender', item.gender) &&
+        matchesFilter('student_type_location', item.student_type_location) &&
+        matchesFilter('student_type_time', item.student_type_time) &&
+        matchesFilter('course_of_study', item.course_of_study) &&
+        matchesFilter('hours_between_lectures', item.hours_between_lectures) &&
+        matchesFilter('hours_per_week_lectures', item.hours_per_week_lectures) &&
+        matchesFilter('hours_per_week_university_work', item.hours_per_week_university_work) &&
+        matchesFilter('level_of_study', item.level_of_study) &&
+        matchesFilter('timetable_preference', item.timetable_preference) &&
+        matchesFilter('timetable_reasons', item.timetable_reasons) &&
+        matchesFilter('timetable_impact', item.timetable_impact) &&
+        matchesFilter('financial_support', item.financial_support) &&
+        matchesFilter('financial_problems', item.financial_problems) &&
+        matchesFilter('family_earning_class', item.family_earning_class) &&
+        matchesFilter('form_of_employment', item.form_of_employment) &&
+        matchesFilter('work_hours_per_week', item.work_hours_per_week) &&
+        matchesFilter('cost_of_study', item.cost_of_study) &&
+        matchesFilter('diet', item.diet) &&
+        matchesFilter('well_hydrated', item.well_hydrated) &&
+        matchesFilter('exercise_per_week', item.exercise_per_week) &&
+        matchesFilter('alcohol_consumption', item.alcohol_consumption) &&
+        matchesFilter('personality_type', item.personality_type) &&
+        matchesFilter('physical_activities', item.physical_activities) &&
+        matchesFilter('mental_health_activities', item.mental_health_activities) &&
+        matchesFilter('hours_socialmedia', item.hours_socialmedia) &&
+        matchesFilter('total_device_hours', item.total_device_hours) &&
+        matchesFilter('hours_socialising', item.hours_socialising) &&
+        matchesFilter('quality_of_life', item.quality_of_life) &&
+        matchesFilter('feel_afraid', item.feel_afraid) &&
+        matchesFilter('stress_in_general', item.stress_in_general) &&
+        matchesFilter('stress_before_exams', item.stress_before_exams) &&
+        matchesFilter('known_disabilities', item.known_disabilities) &&
+        matchesFilter('sense_of_belonging', item.sense_of_belonging)
+      );
     });
 
-    if (!matchesYear || !matchesUniversity) return false;
-
-    const matchesFilter = (key: keyof FilterState, value: any) => {
-      if (!filters[key] || filters[key].length === 0) return true;
-      const matches = filters[key].includes(value);
-      console.log(`Filter ${key}:`, { value, filterValues: filters[key], matches });
-      return matches;
-    };
-
-    return (
-      matchesFilter('ethnic_group', item.ethnic_group) &&
-      matchesFilter('home_country', item.home_country) &&
-      matchesFilter('age', item.age) &&
-      matchesFilter('gender', item.gender) &&
-      matchesFilter('student_type_location', item.student_type_location) &&
-      matchesFilter('student_type_time', item.student_type_time) &&
-      matchesFilter('course_of_study', item.course_of_study) &&
-      matchesFilter('hours_between_lectures', item.hours_between_lectures) &&
-      matchesFilter('hours_per_week_lectures', item.hours_per_week_lectures) &&
-      matchesFilter('hours_per_week_university_work', item.hours_per_week_university_work) &&
-      matchesFilter('level_of_study', item.level_of_study) &&
-      matchesFilter('timetable_preference', item.timetable_preference) &&
-      matchesFilter('timetable_reasons', item.timetable_reasons) &&
-      matchesFilter('timetable_impact', item.timetable_impact) &&
-      matchesFilter('financial_support', item.financial_support) &&
-      matchesFilter('financial_problems', item.financial_problems) &&
-      matchesFilter('family_earning_class', item.family_earning_class) &&
-      matchesFilter('form_of_employment', item.form_of_employment) &&
-      matchesFilter('work_hours_per_week', item.work_hours_per_week) &&
-      matchesFilter('cost_of_study', item.cost_of_study) &&
-      matchesFilter('diet', item.diet) &&
-      matchesFilter('well_hydrated', item.well_hydrated) &&
-      matchesFilter('exercise_per_week', item.exercise_per_week) &&
-      matchesFilter('alcohol_consumption', item.alcohol_consumption) &&
-      matchesFilter('personality_type', item.personality_type) &&
-      matchesFilter('physical_activities', item.physical_activities) &&
-      matchesFilter('mental_health_activities', item.mental_health_activities) &&
-      matchesFilter('hours_socialmedia', item.hours_socialmedia) &&
-      matchesFilter('total_device_hours', item.total_device_hours) &&
-      matchesFilter('hours_socialising', item.hours_socialising) &&
-      matchesFilter('quality_of_life', item.quality_of_life) &&
-      matchesFilter('feel_afraid', item.feel_afraid) &&
-      matchesFilter('stress_in_general', item.stress_in_general) &&
-      matchesFilter('stress_before_exams', item.stress_before_exams) &&
-      matchesFilter('known_disabilities', item.known_disabilities) &&
-      matchesFilter('sense_of_belonging', item.sense_of_belonging)
-    );
-  });
-
-  console.log('Filtered results:', filtered.length);
-  return filtered;
-}, [data, selectedYear, selectedUniversity, filters]);
+  }, [data, selectedYear, selectedUniversity, filters]);
 
 
   if (loading) {
@@ -330,7 +331,6 @@ const filteredData = useMemo(() => {
       {!loading && !error && (
         <div>
           {/* Render your dashboard data here */}
-          <p>Data loaded successfully.</p>
         </div>
       )}
     </div>

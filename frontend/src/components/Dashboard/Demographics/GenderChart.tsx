@@ -30,7 +30,7 @@ const truncateLabel = (label: string, maxLength: number) => {
       <Typography variant="h6" align="center" gutterBottom>
         Gender Chart
       </Typography>
-    <ResponsiveContainer width="100%" height={380}>
+    <ResponsiveContainer width="100%" height={350}>
       <BarChart data={groupedData}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="gender" angle={75} dy={30} dx={5} height={60} interval={0} tickFormatter={(label) => truncateLabel(label, 4)}/>

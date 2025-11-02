@@ -324,3 +324,10 @@ def evaluate_data(df, suppress_warnings=True):
     except Exception as e:
         print(f"Error in model evaluation: {str(e)}")
         raise
+    finally:
+        if os.path.exists('final_results.xlsx'):
+            os.remove('final_results.xlsx')
+            print("Deleted 'final_results.xlsx' successfully.")
+        if os.path.exists('encoded_cleaned_data.xlsx'):
+            os.remove('encoded_cleaned_data.xlsx')
+            print("Deleted 'encoded_cleaned_data.xlsx' successfully.")
