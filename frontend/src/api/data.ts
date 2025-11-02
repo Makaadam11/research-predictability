@@ -1,7 +1,6 @@
 import { QuestionarieData } from '@/types/QuestionaireTypes';
 import { DashboardData } from '@/types/dashboard';
 import axios from 'axios';
-import app from 'next/app';
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
@@ -135,67 +134,3 @@ export const deleteReport = async (timestamp: string): Promise<void> => {
     throw new Error(`Failed to delete report: ${error.message}`);
   }
 };
-
-interface QualtricsData {
-  university: string;
-  responses: any;
-}
-
-
-export async function forwardToBackend(qualtricsData: QualtricsData) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/submit/${qualtricsData.university}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(qualtricsData.responses),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to forward data to backend');
-    }
-
-    return response.json();
-  } catch (error) {
-    console.error('Error forwarding to backend:', error);
-    throw error;
-  }
-}
-
-export async function handleQualtricsWebhook(request: Request) {
-  try {
-
-    const requestBody = await request.json();
-
-    console.log('Received webhook data:', request);
-
-    const processedData: QualtricsData = {
-      university: requestBody?.university || 'unknown',
-      responses: requestBody?.responses || []
-    };
-
-    const secret = request.headers?.get('X-Webhook-Secret');
-    if (WEBHOOK_SECRET && secret !== WEBHOOK_SECRET) {
-      throw new Error('Invalid webhook secret');
-    }
-
-    console.log('Received webhook data:', processedData);
-
-    // Przekaż do backendu
-    // const result = await forwardToBackend(processedData);
-    
-    return {
-      success: true,
-      message: 'Data processed successfully',
-      // result
-    };
-  } catch (error: any) {
-    console.error('Webhook processing error:', error);
-    return {
-      success: false,
-      message: 'Failed to process webhook data',
-      error: error.message
-    };
-  }
-}
