@@ -23,7 +23,7 @@ app = FastAPI()
 
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost,http://localhost:80,http://localhost:3000"
+    "http://localhost,http://localhost:80,http://localhost:3000,http://127.0.0.1"
 ).split(",")
 
 app.add_middleware(
@@ -39,7 +39,7 @@ BASIC_PASS = os.environ.get("BASIC_AUTH_PASS")
 ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET")
 
-base_path = Path("/data")
+base_path = Path("../data")
 
 class RegisterFormInputs(BaseModel):
     email: str
@@ -59,16 +59,6 @@ class DepartmentCoursesResponse(BaseModel):
 class FilePath(BaseModel):
     path: str
 
-@app.post("/api/submit/{university}")
-async def submit_questionaire(university: str, data: QuestionnaireDataModel):
-    try:
-        # Save data to Excel
-        if DataProcessor.save_and_evaluate(data, university):
-            return {"status": "success", "message": "Survey submitted successfully"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to save survey data")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -113,7 +103,6 @@ class DashboardData(BaseModel):
     mental_health_activities: str
     predictions: float
     captured_at: str
-
 class ReportRequest(BaseModel):
     data: List[DashboardData]
     charts: Dict[str, str]
@@ -124,47 +113,6 @@ class ReportRequest(BaseModel):
             if not value.startswith('data:image'):
                 raise ValueError(f'Invalid image format for {key}')
         return v
-
-@app.post("/api/reports")
-async def generate_reports(request: ReportRequest):
-    try:
-        df = pd.DataFrame([item.dict() for item in request.data])
-        reports = Reports(df)
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        
-        # Decode chart images
-        chart_images = {}
-        for key, chart in request.charts.items():
-            if isinstance(chart, str) and chart.startswith("data:image/png;base64,"):
-                chart_images[key] = chart
-        
-        # Generate PDF report and save it temporarily
-        report_path = f"{base_path}/reports/Mental_Health_Report_{timestamp}.pdf"
-        reports.generate_pdf_report(report_path, chart_images)
-        
-        return {"message": "Report generated", "report_url": f"/api/reports/view/{timestamp}"}
-    except Exception as e:
-        logger.error(f"Error generating report: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-    
-@app.get("/api/reports/view/{timestamp}")
-async def view_report(timestamp: str):
-    report_path = f"{base_path}/reports/Mental_Health_Report_{timestamp}.pdf"
-    if os.path.exists(report_path):
-        return FileResponse(report_path, media_type='application/pdf', filename=f"Mental_Health_Report_{timestamp}.pdf")
-    else:
-        raise HTTPException(status_code=404, detail="Report not found")
-
-@app.delete("/api/reports/delete/{timestamp}")
-async def delete_report(timestamp: str):
-    report_path = f"{base_path}/reports/Mental_Health_Report_{timestamp}.pdf"
-    if os.path.exists(report_path):
-        os.remove(report_path)
-        return {"message": "Report deleted"}
-    else:
-        raise HTTPException(status_code=404, detail="Report not found")
-
-
 
 @app.middleware("http")
 async def security_gate(request: Request, call_next):
@@ -211,6 +159,57 @@ async def security_gate(request: Request, call_next):
         )
 
     return await call_next(request)
+
+@app.post("/api/submit/{university}")
+async def submit_questionaire(university: str, data: QuestionnaireDataModel):
+    try:
+        processor = DataProcessor()
+        if processor.save_and_evaluate(data, university):
+            return {"status": "success", "message": "Survey submitted successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save survey data")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/reports")
+async def generate_reports(request: ReportRequest):
+    try:
+        df = pd.DataFrame([item.dict() for item in request.data])
+        reports = Reports(df)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        
+        # Decode chart images
+        chart_images = {}
+        for key, chart in request.charts.items():
+            if isinstance(chart, str) and chart.startswith("data:image/png;base64,"):
+                chart_images[key] = chart
+        
+        # Generate PDF report and save it temporarily
+        report_path = f"{base_path}/reports/Mental_Health_Report_{timestamp}.pdf"
+        reports.generate_pdf_report(report_path, chart_images)
+        
+        return {"message": "Report generated", "report_url": f"/api/reports/view/{timestamp}"}
+    except Exception as e:
+        logger.error(f"Error generating report: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/api/reports/view/{timestamp}")
+async def view_report(timestamp: str):
+    report_path = f"{base_path}/reports/Mental_Health_Report_{timestamp}.pdf"
+    if os.path.exists(report_path):
+        return FileResponse(report_path, media_type='application/pdf', filename=f"Mental_Health_Report_{timestamp}.pdf")
+    else:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+@app.delete("/api/reports/delete/{timestamp}")
+async def delete_report(timestamp: str):
+    report_path = f"{base_path}/reports/Mental_Health_Report_{timestamp}.pdf"
+    if os.path.exists(report_path):
+        os.remove(report_path)
+        return {"message": "Report deleted"}
+    else:
+        raise HTTPException(status_code=404, detail="Report not found")
+
 
 @app.get("/api/courses/{university}", response_model=CourseResponse)
 async def get_courses(university: str):

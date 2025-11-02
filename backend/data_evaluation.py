@@ -208,6 +208,11 @@ def evaluate_data(df, suppress_warnings=True):
         X_train_scaled[selected_numeric_features] = scaler.fit_transform(X_train[selected_numeric_features])
         X_test_scaled[selected_numeric_features] = scaler.transform(X_test[selected_numeric_features])
         
+        num_imputer = SimpleImputer(strategy='median')
+        X_train_scaled[selected_numeric_features] = num_imputer.fit_transform(X_train_scaled[selected_numeric_features])
+        X_test_scaled[selected_numeric_features] = num_imputer.transform(X_test_scaled[selected_numeric_features])
+
+        
         # Apply SMOTE to training data
         smote = SMOTE(random_state=42)
         X_train_resampled, y_train_resampled = smote.fit_resample(X_train_scaled, y_train)

@@ -8,7 +8,7 @@ import numpy as np
 
 class DataProcessor:
     def __init__(self):
-        self.base_path = Path("/data")
+        self.base_path = Path("../data")
         self.selected_columns = [
             'stress_in_general', 'stress_before_exams', 
             'level_of_study', 'timetable_impact',
@@ -63,8 +63,8 @@ class DataProcessor:
             },
         }
         
-    @staticmethod
     def append_row_to_excel(self, excel_path, data_dict):
+        Path(excel_path).parent.mkdir(parents=True, exist_ok=True)
         if os.path.exists(excel_path):
             # Read full file with first row as header
             df = pd.read_excel(excel_path, header=0)
@@ -136,7 +136,6 @@ class DataProcessor:
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             df.to_excel(excel_path, index=False)
     
-    @staticmethod
     def save_and_evaluate(self, data, university: str):
         try:
             # Convert model to dict
@@ -153,8 +152,8 @@ class DataProcessor:
             merged_excel_path = self.base_path / "merged" / "merged_data.xlsx"
             
             # Append row to both university-specific and merged Excel files
-            DataProcessor.append_row_to_excel(university_excel_path, data_dict)
-            DataProcessor.append_row_to_excel(merged_excel_path, data_dict)
+            self.append_row_to_excel(university_excel_path, data_dict)
+            self.append_row_to_excel(merged_excel_path, data_dict)
             
             # Read Excel
             df_merged = pd.read_excel(merged_excel_path, header=None)
