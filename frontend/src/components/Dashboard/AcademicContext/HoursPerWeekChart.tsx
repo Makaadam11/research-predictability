@@ -35,7 +35,7 @@ export const HoursPerWeekChart = ({ data, dataKey, title }: HoursPerWeekChartPro
       <Typography variant="h6" align="center" gutterBottom>
         {title}
       </Typography>
-    <ResponsiveContainer width="100%" height={350}>
+    <ResponsiveContainer width="100%" height={320}>
     <AreaChart data={groupedData}>
       <CartesianGrid strokeDasharray="3 3" />
       <XAxis dataKey="hours" angle={60} height={50} dy={10} dx={5}  interval={3}                    

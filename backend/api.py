@@ -211,28 +211,6 @@ async def delete_report(timestamp: str):
         raise HTTPException(status_code=404, detail="Report not found")
     
 
-@app.get("/api/courses/{university}", response_model=CourseResponse)
-async def get_courses(university: str):
-    try:
-        # Construct file path
-        file_path = f"{base_path}/{university.lower()}/{university.lower()}_courses.xlsx"
-        
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail=f"Course file not found for {university}")
-        
-        # Read Excel file
-        df = pd.read_excel(file_path)
-        
-        # Convert to list of unique courses
-        courses = df['Courses'].dropna().unique().tolist()
-        
-        return {
-            "courses": courses,
-            "university": university
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.get("/api/universities", response_model=List[str])
 async def get_universities():
     try:
@@ -264,6 +242,28 @@ async def get_universities():
         return universities
     except Exception as e:
         print(f"Error in get_universities: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/courses/{university}", response_model=CourseResponse)
+async def get_courses(university: str):
+    try:
+        # Construct file path
+        file_path = f"../data/{university.lower()}/{university.lower()}_courses.xlsx"
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail=f"Course file not found for {university}")
+        
+        # Read Excel file
+        df = pd.read_excel(file_path)
+        
+        # Convert to list of unique courses
+        courses = df['Courses'].dropna().unique().tolist()
+        
+        return {
+            "courses": courses,
+            "university": university
+        }
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/departments/All", response_model=DepartmentCoursesResponse)
@@ -323,12 +323,12 @@ async def get_all_departments():
     except Exception as e:
         print(f"Error in get_all_departments: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 @app.get("/api/departments/{university}", response_model=DepartmentCoursesResponse)
 async def get_departments(university: str):
     print(university )
     try:
-        file_path = f"{base_path}/{university.lower()}/{university.lower()}_courses.xlsx"
+        file_path = f"../data/{university.lower()}/{university.lower()}_courses.xlsx"
         
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail=f"Course file not found for {university}")
