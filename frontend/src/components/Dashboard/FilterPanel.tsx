@@ -266,7 +266,7 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
     filteredDataCache.current.department = departmentFilteredData;
     
     return departmentFilteredData;
-  }, [data, selectedUniversity, selectedYear, selectedDepartment, departments]);
+  }, [enhancedData, selectedUniversity, selectedYear, selectedDepartment, departments]);
 
   // Memoized unique values for performance
   const uniqueValues = useMemo(() => {
@@ -378,21 +378,31 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
 
   // Optimized department counts calculation
   const getDepartmentCounts = useCallback(() => {
-    if (!dataLoaded) return {};
+    if (!dataLoaded || !selectedUniversity || !departments[selectedUniversity]) return {};
     
     const counts: { [key: string]: number } = {};
     
-    // Use cached year filtered data
-    const yearFilteredData = filteredDataCache.current.year;
+    // Use the enhanced data that has department mapping applied
+    const relevantData = enhancedData.filter(item => {
+      // Filter by university
+      const matchesUniversity = !selectedUniversity || selectedUniversity === 'All' || item.source === selectedUniversity;
+      
+      // Filter by year
+      const academicYear = getAcademicYear(item.captured_at);
+      const matchesYear = selectedYear === 'All' || !selectedYear || academicYear === selectedYear;
+      
+      return matchesUniversity && matchesYear;
+    });
     
-    yearFilteredData.forEach(item => {
-      if (item.department) {
+    // Count records for each department
+    relevantData.forEach(item => {
+      if (item.department && item.department !== 'Unknown') {
         counts[item.department] = (counts[item.department] || 0) + 1;
       }
     });
   
     return counts;
-  }, [dataLoaded]);
+  }, [dataLoaded, selectedUniversity, selectedYear, enhancedData, departments]);
 
   // Optimized university counts calculation
   const getUniversityCounts = useCallback(() => {
