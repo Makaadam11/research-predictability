@@ -3,7 +3,6 @@ import { DashboardData } from '@/types/dashboard';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000';
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 export const submitQuestionaire = async (data: QuestionarieData) => {
   try {
@@ -34,7 +33,7 @@ export const loadDepartments = async (university: string): Promise<any> => {
     
     if (university === 'All') {
       // For "All", use the special endpoint
-      const response = await fetch(`http://localhost:8000/api/departments/All`);
+      const response = await fetch(`/api/departments/All`);
       if (!response.ok) {
         console.error(`Failed to fetch all departments: ${response.statusText}`);
         throw new Error(`Failed to fetch all departments: ${response.statusText}`);
@@ -44,7 +43,7 @@ export const loadDepartments = async (university: string): Promise<any> => {
       return data;
     } else {
       // For specific universities
-      const response = await fetch(`http://localhost:8000/api/departments/${university}`);
+      const response = await fetch(`/api/departments/${university}`);
       if (!response.ok) {
         console.error(`Failed to fetch departments for ${university}: ${response.statusText}`);
         throw new Error(`Failed to fetch departments: ${response.statusText}`);
@@ -62,7 +61,7 @@ export const loadDepartments = async (university: string): Promise<any> => {
 export async function getDashboardData(university: string = 'All'): Promise<any> {
   try {
     console.log(`Getting dashboard data for university: ${university}`);
-    const response = await fetch(`http://localhost:8000/api/dashboard?university=${university}`);
+    const response = await fetch(`/api/dashboard?university=${university}`);
     
     if (!response.ok) {
       const error = await response.text();
@@ -151,7 +150,7 @@ export const viewReport = async (timestamp: string): Promise<Blob> => {
 
 export const deleteReport = async (timestamp: string): Promise<void> => {
   try {
-    await axios.delete(`http://localhost:8000/api/reports/delete/${timestamp}`);
+    await axios.delete(`/api/reports/delete/${timestamp}`);
   } catch (error  : any) {
     console.error('Error deleting report:', error);
     throw new Error(`Failed to delete report: ${error.message}`);
