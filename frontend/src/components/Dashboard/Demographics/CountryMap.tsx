@@ -8,6 +8,7 @@ import {
 } from 'react-simple-maps';
 import { Tooltip } from 'react-tooltip';
 import type { DashboardData } from '@/types/dashboard';
+import { ResponsiveContainer } from 'recharts';
 
 interface Props {
   data: DashboardData[];
@@ -40,11 +41,12 @@ export const CountryMap: React.FC<Props> = ({ data }) => {
   }, [data]);
 
   return (
-    <Paper sx={{ p: 2, height: '100%' }}>
-      <Typography variant="h6" gutterBottom>
+    <Box>
+      <Typography variant="h6" align="center" gutterBottom>
         Countries
       </Typography>
-      <Box sx={{ height: 350 }}>
+      <ResponsiveContainer height={385} width="100%">
+        <Box padding={2}>
         <ComposableMap style={{ width: "100%", height: 350 ,  border: '2px solid #ddd', borderRadius: '8px', overflow: 'hidden'}}>
           <ZoomableGroup zoom = {1.3}>
             <Geographies geography="/topo.json">
@@ -98,8 +100,9 @@ export const CountryMap: React.FC<Props> = ({ data }) => {
             </Geographies>
           </ZoomableGroup>
         </ComposableMap>
-        <Tooltip id="my-tooltip" />
-      </Box>
-    </Paper>
+        {/* <Tooltip id="my-tooltip" /> */}
+        </Box>
+      </ResponsiveContainer>
+    </Box>
   );
 };

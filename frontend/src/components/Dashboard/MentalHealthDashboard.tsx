@@ -346,7 +346,7 @@ const MentalHealthDashboard: React.FC = () => {
             </Grid>
             ) : (
                 <>
-              <Grid item xs={12} md={6} >
+        <Grid item xs={12} md={6} >
           <Demographics 
             key={`demographics-${selectedYear}-${filteredData.length}`}
             data={filteredData} 

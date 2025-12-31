@@ -30,7 +30,7 @@ export const TimetableReasonsChart = ({ data }: TimetableReasonsChartProps) => {
       <Typography variant="h6" align="center" gutterBottom>
         Top 25 Timetable Reasons
       </Typography>
-      <ResponsiveContainer width="100%" height={350}>
+      <ResponsiveContainer width="100%" height={320}>
         <WordCloud
           data={words}
           width={300}
