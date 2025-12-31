@@ -518,6 +518,12 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
       return baseData.length;
     };
 
+    const currentSelected = filters[key as keyof FilterState] || [];
+
+    const selectedOptionsCount = searchFilteredValues.filter(val => currentSelected.includes(val)).length;
+    
+    const totalOptionsCount = searchFilteredValues.length;
+
     return (
       <FormControl fullWidth sx={{ mt: 1, mb: 1 }}>
         <InputLabel>{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</InputLabel>
@@ -535,16 +541,16 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
           }}
         >
           
-          <MenuItem value="all">
+            <MenuItem value="all">
             <Checkbox 
-              checked={filters[key as keyof FilterState]?.length === searchFilteredValues.length}
+              checked={totalOptionsCount > 0 && selectedOptionsCount === totalOptionsCount}
               indeterminate={
-                filters[key as keyof FilterState]?.length > 0 && 
-                filters[key as keyof FilterState]?.length < searchFilteredValues.length
+              selectedOptionsCount > 0 && 
+              selectedOptionsCount < totalOptionsCount
               }
             />
-            <ListItemText primary={`Select All (${getFilteredCountForAll()} total)`} />
-          </MenuItem>
+            <ListItemText primary={`Select All (${getFilteredCountForAll()})`} />
+            </MenuItem>
           
           {searchFilteredValues.map((value, index) => {
             const count = getFilteredCount(key, value);
