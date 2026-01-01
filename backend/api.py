@@ -15,8 +15,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, field_validator
 
-from backend.models.account import LoginFormInputs, RegisterFormInputs
-from backend.models.dashboard import DashboardData
+from backend.models.account import LoginForm, RegisterForm
+from backend.models.course import CourseResponse
+from backend.models.department import DepartmentCoursesResponse
 from backend.models.questionnaire import QuestionnaireDataModel
 from backend.models.report import ReportRequest
 from data_processor import DataProcessor
@@ -24,7 +25,6 @@ from reports import Reports
 
 app = FastAPI()
 
-# Initialize thread pool executor for background tasks
 executor = ThreadPoolExecutor(max_workers=5)
 
 ALLOWED_ORIGINS = os.getenv(
@@ -127,8 +127,6 @@ async def submit_questionaire(university: str, data: QuestionnaireDataModel):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
-    
 @app.post("/api/reports")
 async def generate_reports(request: ReportRequest):
     try:
@@ -170,7 +168,6 @@ async def delete_report(timestamp: str):
         return {"message": "Report deleted"}
     else:
         raise HTTPException(status_code=404, detail="Report not found")
-    
 
 @app.get("/api/universities", response_model=List[str])
 async def get_universities():
@@ -205,9 +202,6 @@ async def get_universities():
         print(f"Error in get_universities: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-class CourseResponse(BaseModel):
-    courses: List[str]
-    university: str
     
 @app.get("/api/courses/{university}", response_model=CourseResponse)
 async def get_courses(university: str):
@@ -230,9 +224,6 @@ async def get_courses(university: str):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-class DepartmentCoursesResponse(BaseModel):
-    departments: Dict[str, List[str]]
 
 @app.get("/api/departments/All", response_model=DepartmentCoursesResponse)
 async def get_all_departments():
@@ -329,7 +320,7 @@ def get_user_data():
         return pd.DataFrame(columns=["email", "password", "isAdmin", "university"])
 
 @app.post("/api/login")
-async def login(data: LoginFormInputs):
+async def login(data: LoginForm):
     try:
         df = get_user_data()
         
@@ -364,7 +355,7 @@ def save_user_data(df):
     df.to_excel(file_path, index=False)
 
 @app.post("/api/register")
-async def register(data: RegisterFormInputs):
+async def register(data: RegisterForm):
     try:
         df = get_user_data()
         print("Registration attempt for:", data.email)
