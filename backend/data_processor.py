@@ -227,8 +227,6 @@ class DataProcessor:
             else:
                 print("Column 'actual' not found in df_merged")
 
-            # Format 'captured_at' column
-            df_merged['captured_at'] = pd.to_datetime(df_merged['captured_at'], errors='coerce').dt.strftime('%d.%m.%Y %H:%M')
 
             # Create DataFrame with questions as new columns
             df_merged.columns = questions_row

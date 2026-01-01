@@ -32,6 +32,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight responses for 1 hour
 )
 
 BASIC_USER = os.environ.get("BASIC_AUTH_USER")
@@ -118,6 +120,10 @@ class ReportRequest(BaseModel):
 async def security_gate(request: Request, call_next):
     path = request.url.path
 
+    if request.method == "OPTIONS":
+        response = await call_next(request)
+        return response
+    
     public_prefixes = (
         "/api/login",
         "/api/register",
