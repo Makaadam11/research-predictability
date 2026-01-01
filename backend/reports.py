@@ -9,8 +9,8 @@ from fpdf.enums import XPos, YPos
 from io import BytesIO
 from pathlib import Path
 from PIL import Image
-from backend.models.groq import GroqClient
-from backend.types.columns import base_columns, categorical_columns, numeric_columns, demographic_cols, academic_cols, financial_cols, lifestyle_cols, psychological_cols
+from models.groq import GroqClient
+from structs.columns import base_columns, categorical_columns, numeric_columns, demographic_cols, academic_cols, financial_cols, lifestyle_cols, psychological_cols
 
 matplotlib.use('Agg')
 
@@ -22,8 +22,14 @@ def clean_numeric_values(value):
     except (ValueError, TypeError):
         return np.nan
     
+# TODO: Add source and consider actual
 def preprocess_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    df = df[base_columns].copy()
+    cols = base_columns.copy()
+    cols.append('predictions')
+    # cols.remove('actual')
+    # cols.append('source')
+
+    df = df[cols].copy()
     
     for col in numeric_columns:
         df[col] = df[col].apply(clean_numeric_values)
