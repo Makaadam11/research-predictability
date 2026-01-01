@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { Paper, Typography, FormControl, Select, MenuItem, InputLabel, Checkbox, ListItemText, Collapse, Box } from '@mui/material';
 import type { DashboardData, FilterState } from '../../types/dashboard';
 import { loadDepartments } from '../../api/data';
+import { debounce } from 'lodash';
 
 interface FilterPanelProps {
   filters: FilterState;
@@ -33,6 +34,13 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
       : [];
   });
   const [searchTerm, setSearchTerm] = useState<string>('');
+
+  const debouncedFilterChange = useMemo(
+    () => debounce((key: keyof FilterState, value: string[]) => {
+      onFilterChange(key, value);
+    }, 300),
+    [onFilterChange]
+  );
   
   // Cache for filtered data to avoid recalculating
   const filteredDataCache = useRef<{
@@ -481,14 +489,14 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
       try {
         if (value.includes('all')) {
           if (filters[key as keyof FilterState]?.length === values.length) {
-            onFilterChange(key as keyof FilterState, []);
+            debouncedFilterChange(key as keyof FilterState, []);
           } else {
-            onFilterChange(key as keyof FilterState, values);
+            debouncedFilterChange(key as keyof FilterState, values);
           }
         } else if (value.length === 0) {
-          onFilterChange(key as keyof FilterState, []);
+          debouncedFilterChange(key as keyof FilterState, []);
         } else {
-          onFilterChange(key as keyof FilterState, value);
+          debouncedFilterChange(key as keyof FilterState, value);
         }
       } finally {
         setLoading(prev => ({ ...prev, [key]: false }));
@@ -580,7 +588,8 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
   return (
     <div>
     <Paper sx={{ p: 2, fontFamily: 'Georgia, serif' }}>
-      <Typography variant="h6" gutterBottom sx={{ fontFamily: 'Georgia, serif' }}>
+
+      <Typography variant="h5"  gutterBottom sx={{ textAlign: 'center', fontFamily: 'Georgia, serif' }}>
         Filters
       </Typography>
 
@@ -625,8 +634,8 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
         </FormControl>
         
         {selectedUniversity && (
-          <>
-            <Typography variant="h5" gutterBottom sx={{ textAlign: 'center', borderRadius: '5px', backgroundColor: '#ffff', fontFamily: 'Georgia, serif' }}>
+          <Box style={{padding: 3}}>
+            <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', borderRadius: '5px', backgroundColor: '#ffff', fontFamily: 'Georgia, serif' }}>
               Departments
             </Typography>
             <FormControl fullWidth sx={{ mt: 1, mb: 1, minWidth: 200, maxWidth: '100%', fontFamily: 'Georgia, serif' }}>
@@ -661,11 +670,11 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
                 })}
               </Select>
             </FormControl>
-          </>
+          </Box>
         )}
         {selectedDepartment.length > 0 && (
-          <>
-            <Typography variant="h5" gutterBottom sx={{ textAlign: 'center', borderRadius: '5px', backgroundColor: '#ffff', fontFamily: 'Georgia, serif' }}>
+          <Box style={{padding: 3}}>
+            <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', fontFamily: 'Georgia, serif'}}>
               Courses
             </Typography>
 
@@ -686,22 +695,24 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
               />
             
             {renderSelect('course_of_study', uniqueValues?.course_of_study || []) }
-          </>
+          </Box>
         )}
 
-      <Box onClick={() => toggleSection('demographics')} style={{cursor:'pointer'}}>
+      <hr />
+      <Box onClick={() => toggleSection('demographics')} style={{cursor:'pointer', padding: 3}}>
         <Typography variant="h6" gutterBottom>
           Demographics
         </Typography>
       </Box>
-      <Collapse in={openSections['demographics']} sx={{ mt: 1, mb: 1, minWidth: 200, maxWidth: '100%' }}>
+      <Collapse in={openSections['demographics']} sx={{ minWidth: 200, maxWidth: '100%' }}>
         {renderSelect('ethnic_group', uniqueValues.ethnic_group?.filter(value => value !== 'Not Provided') || [])}
         {renderSelect('home_country', uniqueValues.home_country?.filter(value => value !== 'Not Provided') || [])}
         {renderSelect('age', uniqueValues.age?.sort((a, b) => a - b) || [])}
         {renderSelect('gender', uniqueValues.gender?.filter(value => value !== 'Not Provided') || [])}
       </Collapse>
       
-      <Box onClick={() => toggleSection('academicContext')} style={{cursor:'pointer'}}>
+      <hr />
+      <Box onClick={() => toggleSection('academicContext')} style={{cursor:'pointer' , padding: 3}}>
         <Typography variant="h6" gutterBottom>
           Academic Context
         </Typography>
@@ -716,7 +727,8 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
         {renderSelect('timetable_impact', uniqueValues.timetable_impact?.filter(value => value !== 'Not Provided') || [])}
       </Collapse>
       
-      <Box onClick={() => toggleSection('socioeconomicFactors')} style={{cursor:'pointer'}}>
+      <hr />
+      <Box onClick={() => toggleSection('socioeconomicFactors')} style={{cursor:'pointer' , padding: 3}}>
         <Typography variant="h6" gutterBottom>
           Socioeconomic Factors
         </Typography>
@@ -730,7 +742,8 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
         {renderSelect('cost_of_study', uniqueValues.cost_of_study?.sort((a, b) => a - b) || [])}
       </Collapse>
       
-      <Box onClick={() => toggleSection('lifestyleAndBehaviour')} style={{cursor:'pointer'}}>
+      <hr />
+      <Box onClick={() => toggleSection('lifestyleAndBehaviour')} style={{cursor:'pointer', padding: 3}}>
         <Typography variant="h6" gutterBottom>
           Lifestyle and Behaviour
         </Typography>
@@ -745,7 +758,8 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
         {renderSelect('mental_health_activities', uniqueValues.mental_health_activities?.filter(value => value !== 'Not Provided') || [])}
       </Collapse>
       
-      <Box onClick={() => toggleSection('socialAndTechnologicalFactors')} style={{cursor:'pointer'}}>
+      <hr />
+      <Box onClick={() => toggleSection('socialAndTechnologicalFactors')} style={{cursor:'pointer', padding: 3}}>
         <Typography variant="h6" gutterBottom>
           Social and Technological Factors
         </Typography>
@@ -756,7 +770,8 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
         {renderSelect('hours_socialising', uniqueValues.hours_socialising?.sort((a, b) => a - b)|| [])}
       </Collapse>
       
-      <Box onClick={() => toggleSection('psychologicalAndEmotionalFactors')} style={{cursor:'pointer'}}>
+      <hr />
+      <Box onClick={() => toggleSection('psychologicalAndEmotionalFactors')} style={{cursor:'pointer', padding: 3}}>
         <Typography variant="h6" gutterBottom>
           Psychological and Emotional Factors
         </Typography>
