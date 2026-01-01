@@ -38,7 +38,6 @@ def clean_and_encode_data(df, numeric_features, categorical_features):
     return df, encoders
 
 def train_and_save_model(X_train, y_train, model_type='RandomForest', suffix=''):
-    """Train the model and save it to a .sav file"""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         
@@ -91,7 +90,7 @@ def train_and_save_model(X_train, y_train, model_type='RandomForest', suffix='')
         best_model = model_random.best_estimator_
 
         # Save the model to disk with the suffix
-        model_filename = f'{model_type}_{suffix}_model.sav'
+        model_filename = f'ml/{model_type}_{suffix}_model.sav'
         joblib.dump(best_model, model_filename)
         print(f"Saved {model_type} model to {model_filename}")
 
@@ -236,7 +235,7 @@ def evaluate_data(df, suppress_warnings=True):
         # Load model and predict
         for model_type in models:
             for smote_type in ['original', 'smote']:
-                model_filename = f'{model_type}_{smote_type}_model.sav'
+                model_filename = f'ml/{model_type}_{smote_type}_model.sav'
                 if not os.path.exists(model_filename):
                     raise FileNotFoundError(f"No such file or directory: '{model_filename}'")
                 model = joblib.load(model_filename)
