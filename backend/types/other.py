@@ -39,19 +39,6 @@ questions = [
     'Source', 'Predictions', 'Captured At'
 ]
 
-column_ids = [
-    'diet', 'ethnic_group', 'hours_per_week_university_work', 'family_earning_class',
-    'quality_of_life', 'alcohol_consumption', 'personality_type', 'stress_in_general',
-    'well_hydrated', 'exercise_per_week', 'known_disabilities', 'work_hours_per_week',
-    'financial_support', 'form_of_employment', 'financial_problems', 'home_country',
-    'age', 'course_of_study', 'stress_before_exams', 'feel_afraid',
-    'timetable_preference', 'timetable_reasons', 'timetable_impact', 'total_device_hours',
-    'hours_socialmedia', 'level_of_study', 'gender', 'physical_activities',
-    'hours_between_lectures', 'hours_per_week_lectures', 'hours_socialising', 'actual',
-    'student_type_time', 'student_type_location', 'cost_of_study', 'sense_of_belonging',
-    'mental_health_activities', 'source', 'predictions', 'captured_at'
-]
-
 GoogleFormsTranslationMap = {
     "1. Would you describe your current diet as healthy and balanced?": "diet",
     "2. What is your ethnic group?": "ethnic_group",

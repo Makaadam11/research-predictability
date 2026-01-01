@@ -1,67 +1,14 @@
+import os
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
-import os
 from data_evaluation import evaluate_data
-from models import QuestionnaireColumnsModel
-import numpy as np
+from backend.types.other import questions
+from backend.types.columns import all_columns
 
 class DataProcessor:
     def __init__(self):
         self.base_path = Path("../data")
-        self.selected_columns = [
-            'stress_in_general', 'stress_before_exams', 
-            'level_of_study', 'timetable_impact',
-            'course_of_study'
-        ]
-        self.value_mappings = {
-            'stress_in_general': {
-                'Yes (due to employment-related issues)': 'Yes',
-                'Yes (due to other circumstances, such as health, family issues, etc)': 'Yes',
-                'Yes (due to university work)': 'Yes',
-                'No': 'No',
-                'Yes': 'Yes',
-                'Yes (due to other circumstances, such as health, family issues, etc),No': 'Yes',
-                'Yes (due to other circumstances, such as health, family issues, etc), Yes (due to university work)': 'Yes',
-                'Yes (due to employment-related issues), Yes (due to other circumstances, such as health, family issues, etc)': 'Yes',
-                'Yes (due to employment-related issues),Yes (due to other circumstances, such as health, family issues, etc),Yes (due to university work)': 'Yes',
-                'Yes (due to university work),No': 'Yes',
-                'Yes (due to employment-related issues), Yes (due to university work)': 'Yes'
-            },
-            'stress_before_exams': {
-                'Yes (due to university work)': 'Yes',
-                'Yes (due to employment-related issues)': 'Yes',
-                'Yes (due to other circumstances such as health, family issues, etc)': 'Yes',
-                'Yes': 'Yes',
-                'No': 'No',
-                "I don't have exams": 'No',
-                "I don't normally have exams": 'No',
-                'No (I am not stressed)': 'No'
-            },
-           'timetable_impact': {
-                'Yes': 'Yes',
-                'No': 'No',
-                'Not completed': 'No',
-                'Yes, on my life, health and studies': 'Yes',
-                'Yes, on my studies': 'Yes',
-                'Yes, on my life and health': 'Yes',
-                'No, it has no impact on my studies, life or health': 'No'
-            },
-            'level_of_study': {
-                'Level 4': 'Level 4',
-                'Level 4 ': 'Level 4',
-                'Level 4 (first year, undergraduate)': 'Level 4',
-                'Level 4 Foundation year': 'Level 4',
-                'Foundation year': 'Level 4',
-                'Level 5 (second year, undergraduate)': 'Level 5',
-                'Level 6 (third year, undergraduate)': 'Level 6',
-                'Level 7': 'Level 7',
-                'Level 7 ': 'Level 7',
-                'Level 7 (postgraduate)': 'Level 7',
-                'Others': 'Other',
-                'Other': 'Other'
-            },
-        }
         
     def append_row_to_excel(self, excel_path, data_dict):
         Path(excel_path).parent.mkdir(parents=True, exist_ok=True)
@@ -103,28 +50,15 @@ class DataProcessor:
             df.to_excel(excel_path, index=False)
             
         else:
-            # Create new file with two header rows
-            questions = [
-                '1. Would you describe your current diet as healthy and balanced?',
-                # ... rest of questions
-                'Source', 'Predictions', 'Captured At'
-            ]
-            
-            column_ids = [
-                'diet', 'ethnic_group',
-                # ... rest of ids
-                'source', 'predictions', 'captured_at'
-            ]
-            
             # Create DataFrame with questions as headers
             df = pd.DataFrame(columns=questions)
             
             # Add column IDs as first row
-            df.loc[0] = column_ids
+            df.loc[0] = all_columns
             
             # Add new data row
             new_row = {}
-            for q, col_id in zip(questions, column_ids):
+            for q, col_id in zip(questions, all_columns):
                 if col_id in ['source', 'predictions', 'captured_at']:
                     answer = data_dict.get(col_id)
                 else:
