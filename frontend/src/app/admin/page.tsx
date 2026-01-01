@@ -16,7 +16,7 @@ export default function AdminPage() {
           </Link>
         </div>
       </nav>
-      <div className="container mx-auto p-8">
+      <div className="container mx-auto ">
         <AdminPanel />
       </div>
     </div>
