@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-from backend.types.columns import value_mappings, stress_columns, numeric_columns, country_mapping, base_columns
+from structs.columns import value_mappings, stress_columns, numeric_columns, country_mapping, base_columns
 
 class DataMerger:
     def __init__(self):

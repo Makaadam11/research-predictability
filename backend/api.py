@@ -15,11 +15,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, field_validator
 
-from backend.models.account import LoginForm, RegisterForm
-from backend.models.course import CourseResponse
-from backend.models.department import DepartmentCoursesResponse
-from backend.models.questionnaire import QuestionnaireDataModel
-from backend.models.report import ReportRequest
+from models.account import LoginForm, RegisterForm
+from models.course import CourseResponse
+from models.department import DepartmentCoursesResponse
+from models.questionnaire import QuestionnaireDataModel
+from models.report import ReportRequest
 from data_processor import DataProcessor
 from reports import Reports
 

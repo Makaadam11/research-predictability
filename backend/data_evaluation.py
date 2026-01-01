@@ -3,7 +3,7 @@ import joblib
 import warnings
 import pandas as pd
 import numpy as np
-from backend.types.columns import all_columns, numeric_columns, categorical_columns
+from structs.columns import all_columns, numeric_columns, categorical_columns
 from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split, cross_val_score, RandomizedSearchCV
 from sklearn.preprocessing import StandardScaler, LabelEncoder

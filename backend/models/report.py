@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from backend.models.dashboard import DashboardData
+from models.dashboard import DashboardData
 from pydantic import BaseModel, field_validator
 
 class ReportRequest(BaseModel):

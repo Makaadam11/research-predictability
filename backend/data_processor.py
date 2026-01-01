@@ -3,8 +3,8 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from data_evaluation import evaluate_data
-from backend.types.other import questions
-from backend.types.columns import all_columns
+from structs.other import questions
+from structs.columns import all_columns
 
 class DataProcessor:
     def __init__(self):
