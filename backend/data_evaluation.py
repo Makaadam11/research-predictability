@@ -1,15 +1,16 @@
+import os
+import joblib
+import warnings
 import pandas as pd
 import numpy as np
+from backend.types.columns import all_columns, numeric_columns, categorical_columns
+from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split, cross_val_score, RandomizedSearchCV
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
-from imblearn.over_sampling import SMOTE
 from sklearn.impute import SimpleImputer
-import joblib
-import warnings
-import os
 
 def clean_and_encode_data(df, numeric_features, categorical_features):
     """Clean and encode all data before splitting"""
@@ -99,52 +100,17 @@ def evaluate_data(df, suppress_warnings=True):
         warnings.filterwarnings('ignore')
     
     try:
-        # Define correct column names in order
-        correct_columns = [
-            'diet', 'ethnic_group', 'hours_per_week_university_work',
-            'family_earning_class', 'quality_of_life', 'alcohol_consumption',
-            'personality_type', 'stress_in_general', 'well_hydrated',
-            'exercise_per_week', 'known_disabilities', 'work_hours_per_week',
-            'financial_support', 'form_of_employment', 'financial_problems',
-            'home_country', 'age', 'course_of_study', 'stress_before_exams',
-            'feel_afraid', 'timetable_preference', 'timetable_reasons',
-            'timetable_impact', 'total_device_hours', 'hours_socialmedia',
-            'level_of_study', 'gender', 'physical_activities',
-            'hours_between_lectures', 'hours_per_week_lectures',
-            'hours_socialising', 'actual', 'student_type_time',
-            'student_type_location', 'cost_of_study', 'sense_of_belonging',
-            'mental_health_activities', 'source', 'predictions', 'captured_at'
-        ]
-        
-        # Set new column names
-        df.columns = correct_columns
+        df.columns = all_columns
         print("Column names set successfully.")
         
-        # Verify no quotes remain
         if any("'" in col for col in df.columns):
             print("Warning: Some columns still contain quotes")
         
-        selected_numeric_features = [
-            'age', 'hours_socialising', 'hours_socialmedia', 
-            'total_device_hours', 'hours_per_week_university_work',
-            'exercise_per_week', 'work_hours_per_week',
-            'hours_between_lectures', 'hours_per_week_lectures',
-            'cost_of_study'
-        ]
-        
-        selected_categorical_features = [
-            'stress_in_general', 'stress_before_exams', 
-            'financial_problems', 'personality_type',
-            'quality_of_life', 'known_disabilities',
-            'diet', 'alcohol_consumption', 'well_hydrated',
-            'timetable_preference', 'physical_activities',
-            'form_of_employment', 'student_type_time',
-            'level_of_study', 'gender', 'ethnic_group',
-            'family_earning_class', 'financial_support',
-            'home_country', 'course_of_study', 'feel_afraid',
-            'timetable_impact', 'student_type_location',
-            'sense_of_belonging'
-        ]
+        selected_numeric_features = numeric_columns.copy()
+
+        selected_categorical_features = categorical_columns.copy()
+        selected_categorical_features.remove('timetable_reasons')
+        selected_categorical_features.remove('mental_health_activities')
 
         # Verify required columns exist
         missing_columns = [col for col in selected_numeric_features + selected_categorical_features + ['actual'] 

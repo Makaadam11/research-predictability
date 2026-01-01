@@ -23,9 +23,7 @@ def clean_numeric_values(value):
         return np.nan
     
 def preprocess_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    
-    df.columns = base_columns
+    df = df[base_columns].copy()
     
     for col in numeric_columns:
         df[col] = df[col].apply(clean_numeric_values)
@@ -93,13 +91,10 @@ class Reports:
         self.pdf.multi_cell(190, 9)
         print(f"Image with text added: {text}")
     
-    def remove_tmp_report_assets(self):
+    def remove_tmp_dir(self):
         for img_file in self.output_dir.glob("*.png"):
-            try:
-                img_file.unlink()
-                print(f"Removed temporary image: {img_file}")
-            except Exception as e:
-                print(f"Error removing image {img_file}: {e}")
+            img_file.unlink()
+        self.output_dir.rmdir()
 
     def generate_report_pdf(self, df: pd.DataFrame, output_path: str, chart_images: dict = None):
         
@@ -120,8 +115,7 @@ class Reports:
 
         report_content = self.llm.generate_report_content(prompt)
         
-        self.pdf.cell(200, 10, "Student Mental Health Analysis", 
-                    new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+        self.pdf.cell(200, 10, "Student Mental Health Analysis", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
         self.pdf.ln(10)
         self.pdf.set_font('DejaVuLGCSans', '', 12)
 
@@ -146,7 +140,7 @@ class Reports:
                     chart_title = title if title != "[object HTMLDivElement]" else "Chart"
                     self.pdf.add_page()
                     self.add_image_with_text(image, f"Analysis for {chart_title.replace('_', ' ').title()}")
-            self.remove_temp_images()
 
         self.pdf.output(output_path)
-        print(f"PDF report generated at: {output_path}")
+        self.remove_tmp_dir()
+        print(f"PDF report generated successfully at: {output_path}")

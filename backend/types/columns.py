@@ -41,8 +41,8 @@ numeric_columns = [
 ]
 
 demographic_cols = [
-            'home_country', 'ethnic_group', 'age', 'gender', 
-            'family_earning_class', 'student_type_location'
+    'home_country', 'ethnic_group', 'age', 'gender', 
+    'family_earning_class', 'student_type_location'
 ]
 
 academic_cols = [
