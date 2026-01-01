@@ -81,7 +81,7 @@ export async function getDashboardData(university: string = 'All'): Promise<any>
 export const generateReport = async (filteredData: DashboardData[], chartImages: { [key: string]: string }) => {
   try {
     if (!filteredData?.length) throw new Error('Invalid filtered data');
-    if (!chartImages || !Object.keys(chartImages).length) throw new Error('No chart images provided');
+    // if (!chartImages || !Object.keys(chartImages).length) throw new Error('No chart images provided');
 
     // Clean and transform the data
     const cleanedData = filteredData.map(item => ({
@@ -102,20 +102,17 @@ export const generateReport = async (filteredData: DashboardData[], chartImages:
     }));
 
     // Process and validate chart images
-    const processedChartImages = Object.fromEntries(
-      Object.entries(chartImages)
-        .filter(([_, value]) => value?.startsWith('data:image/'))
-        .map(([key, value]) => [key, value])
-    );
+    // const processedChartImages = Object.fromEntries(
+    //   Object.entries(chartImages)
+    //     .filter(([_, value]) => value?.startsWith('data:image/'))
+    //     .map(([key, value]) => [key, value])
+    // );
 
     const payload = {
       data: cleanedData,
-      charts: processedChartImages
+      charts: {}
+      // charts: processedChartImages
     };
-
-    // Debug: Print the number of charts being sent
-    console.log(`Number of charts being sent: ${Object.keys(processedChartImages).length}`);
-    console.log('Sending payload:', JSON.stringify(payload, null, 2));
 
     const response = await fetch(`/api/reports`, {
       method: 'POST',

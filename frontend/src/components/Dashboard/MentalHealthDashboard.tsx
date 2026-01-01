@@ -98,17 +98,19 @@ const MentalHealthDashboard: React.FC = () => {
   };
 
   const handleGenerateReport = async () => {
-    setGeneratingReport(true); // Set loading state to true
+    setGeneratingReport(true);
     try {
       // const chartImages = await captureChartImages();
-      // console.log(`Number of charts being sent: ${Object.keys(chartImages).length}`);
-      const chartImages = await captureChartImages();
+      const chartImages: { [key: string]: string } = {};
       const response = await generateReport(filteredData, chartImages);
+
       alert('Report generated successfully');
       setReportUrl(response?.report_url);
+
     } catch (error) {
       console.error('Error generating report:', error);
       alert('Failed to generate report');
+
     } finally {
       setGeneratingReport(false); // Set loading state to false
     }

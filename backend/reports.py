@@ -1,9 +1,10 @@
 from io import BytesIO
+import json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
-from models import GroqClient
+from backend.models.types import GroqClient
 from PIL import Image
 matplotlib.use('Agg')
 from pathlib import Path
@@ -19,7 +20,7 @@ def clean_numeric_values(value):
     except (ValueError, TypeError):
         return np.nan
     
-def preprocess_dataframe(df):
+def preprocess_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     
     # Rename columns
@@ -72,11 +73,9 @@ def preprocess_dataframe(df):
     return df
 
 class Reports:
-    def __init__(self, df):
-        # print("df: " + str(df))
-        self.df = preprocess_dataframe(df)
+    def __init__(self):
         self.llm = GroqClient()
-        self.output_dir = Path("report_assets")
+        self.output_dir = Path("tmp_report_assets")
         self.output_dir.mkdir(exist_ok=True)
         self.pdf = FPDF()
         
@@ -88,8 +87,6 @@ class Reports:
         self.pdf.add_font('DejaVuLGCSans-Bold', '', str(font_path), uni=True)
         self.pdf.set_font('DejaVuLGCSans', '', 12)
         
-        # Print available columns after preprocessing
-        print("Available columns after preprocessing:", self.df.columns.tolist())
         
         # Updated column categories based on preprocessed data
         self.demographic_cols = [
@@ -116,18 +113,18 @@ class Reports:
             'personality_type', 'exercise_per_week', 'feel_afraid', 'known_disabilities'
         ]
 
-    def get_category_statistics(self, category_cols):
+    def get_category_statistics(self, df, category_cols):
         stats = {}
         for col in category_cols:
-            if col in self.df.columns:
-                if self.df[col].dtype in ['int64', 'float64']:
+            if col in df.columns:
+                if df[col].dtype in ['int64', 'float64']:
                     stats[col] = {
-                        'mean': self.df[col].mean(),
-                        'median': self.df[col].median(),
-                        'std': self.df[col].std()
+                        'mean': df[col].mean(),
+                        'median': df[col].median(),
+                        'std': df[col].std()
                     }
                 else:
-                    stats[col] = self.df[col].value_counts().to_dict()
+                    stats[col] = df[col].value_counts().to_dict()
         return stats
 
     def add_image_with_text(self, image_data, text):
@@ -156,131 +153,192 @@ class Reports:
         self.pdf.set_font('DejaVuLGCSans', '', 12)
         self.pdf.multi_cell(190, 9)
         print(f"Image with text added: {text}")
+    
+    def remove_tmp_report_assets(self):
+        for img_file in self.output_dir.glob("*.png"):
+            try:
+                img_file.unlink()
+                print(f"Removed temporary image: {img_file}")
+            except Exception as e:
+                print(f"Error removing image {img_file}: {e}")
 
-    def generate_pdf_report(self, output_path, chart_images):
+    def generate_report_pdf(self, df: pd.DataFrame, output_path: str, chart_images: dict = None):
+        
+        df: pd.DataFrame = preprocess_dataframe(df)
+
         # Initialize PDF
         self.pdf.add_page()
         self.pdf.set_font('DejaVuLGCSans-Bold', '', 16)
 
         # Generate statistics for each category
         stats = {
-            'demographics': self.get_category_statistics(self.demographic_cols),
-            'academic': self.get_category_statistics(self.academic_cols),
-            'financial': self.get_category_statistics(self.financial_cols),
-            'lifestyle': self.get_category_statistics(self.lifestyle_cols),
-            'psychological': self.get_category_statistics(self.psychological_cols)
+            'demographics': self.get_category_statistics(df, self.demographic_cols),
+            'academic': self.get_category_statistics(df, self.academic_cols),
+            'financial': self.get_category_statistics(df, self.financial_cols),
+            'lifestyle': self.get_category_statistics(df, self.lifestyle_cols),
+            'psychological': self.get_category_statistics(df, self.psychological_cols)
         }
 
         # Generate prompt for LLM
+        # prompt = f"""
+        # Create a comprehensive mental health report with these sections:
+        
+        # 1. Executive Summary
+        # 2. Demographic Analysis: {stats['demographics']}
+        # 3. Academic Factors Analysis: {stats['academic']}
+        # 4. Financial Analysis: {stats['financial']}
+        # 5. Lifestyle Analysis: {stats['lifestyle']}
+        # 6. Psychological and Social Analysis: {stats['psychological']}
+        # 7. Percentages Summary
+        # 8. Key Findings
+        # 9. Recommendations
+        
+        # For each category, analyze the data based on the prediction values (0 or 1) indicating mental health issues.
+        
+        # Example format:
+        
+        # BSc Computer Science (Analysis)
+        
+        # Summary Metrics
+        # • Total Records for BSc Computer Science: 37
+        # • Predicted "Mental Health Proneness" (Predictions = 1): 7
+        # • Predicted "Not Prone to Mental Health" (Predictions = 0): 30
+        
+        # Age Group Distribution:
+        # o 16–20 years: Majority of students (70%), with 90% classified as not prone (Prediction = 0). Only 10% classified as prone (Prediction = 1).
+        # o 21–25 years: 20% of students, all predominantly classified as not prone.
+        # o Evidence indicates that younger students face lower mental health proneness.
+        
+        # Financial Support and Financial Problems:
+        # o Parent Support: 100% of students with parent support were classified as not prone (Prediction = 0).
+        # o Student Loans: Represents 65% of students, with 85% classified as not prone and 15% prone. Financial dependency plays a role in mental health stability.
+        # o Financial Problems: 80% of those facing financial problems (e.g., lower family income) were classified as prone to mental health issues (Prediction = 1).
+        
+        # Stress Levels:
+        # o Stress before exams: 90% reported stress, but only 15% were prone (Prediction = 1).
+        # o Stress in general: 80% of students reported general stress, with a small correlation to being prone (20%).
+        
+        # Employment Status:
+        # o Unemployed Students: 90% classified as not prone. Lack of work may reduce mental health risk.
+        # o Part-time/Full-time Jobs: 10% prone, possibly linked to time management and academic pressure.
+        
+        # Diet and Exercise:
+        # o Students with healthy diets and regular exercise were predominantly not prone (95%).
+        # o Lack of hydration/alcohol consumption showed no strong correlation.
+        
+        # Social Media and Device Use:
+        # o High social media use (15+ hours weekly): 40% prone to mental health issues.
+        # o Moderate use (8–15 hours weekly): 10% prone.
+        # o Low use (<8 hours weekly): No correlation observed with mental health proneness.
+        
+        # Family Earning Class:
+        # o Lower Class: 60% prone.
+        # o Middle Class: 90% not prone.
+        # o Higher Class: 95% not prone. Economic stability correlates with mental health resilience.
+        
+        # Gender Distribution:
+        # o Female students: 15% prone (Prediction = 1).
+        # o Male students: 5% prone.
+        # o Other genders (e.g., Non-binary): Higher proneness (40%), though sample size is small.
+        
+        # Evidenced-Based Conclusion
+        # 1. Age and Support Systems: Younger students (16–20 years) with adequate parental or financial support exhibit low mental health risks. Financial problems and lack of familial support significantly increase susceptibility.
+        # 2. Stress and Workload: General and exam-related stress are not sole predictors of mental health issues. However, combining high stress with heavy workloads (employment) amplifies risks.
+        # 3. Economic Class: Lower-income students face disproportionately higher mental health challenges, highlighting a critical area for intervention.
+        # 4. Social Media Influence: Excessive use (15+ hours) correlates with increased mental health issues. Moderation appears to offer protection.
+        # 5. Gender Differences: Females and non-binary individuals demonstrate higher vulnerability, suggesting gender-sensitive support mechanisms.
+        
+        # Recommendations
+        # 1. Enhance Financial Support: Universities should prioritize financial aid, especially for lower-income and international students. Emergency grants and mental health funding should be streamlined.
+        # 2. Promote Balanced Lifestyles:
+        # a. Campaigns promoting healthy diets, hydration, and regular exercise should be instituted.
+        # b. Social media workshops to teach moderation and device-free time could mitigate digital stress.
+        # 3. Targeted Mental Health Resources:
+        # a. Expand counseling and peer-support services, with a focus on gender-sensitive approaches.
+        # b. Provide tailored support for part-time workers balancing employment and studies.
+        # 4. Monitor High-Risk Groups:
+        # a. Track stress levels and workload in younger cohorts, offering early intervention.
+        # b. Introduce mentorship programmes pairing upper-year students with first years for guidance.
+        # 5. Data-Driven Initiatives:
+        # a. Conduct regular surveys and use predictive models to refine mental health strategies.
+        # b. Integrate mental health modules into the academic curriculum for greater awareness.
+        
+        # Generally
+        # • Financial issues, stress, heavy social media usage, and limited physical activity are significant indicators of mental health proneness.
+        # • Strengthening coping mechanisms and offering financial and mental health support could mitigate risks.
+        # • Encouraging balanced lifestyles, reduced social media reliance, and physical activity can promote resilience.
+        # """
+
         prompt = f"""
-        Create a comprehensive mental health report with these sections:
+        Create a comprehensive mental health report based on the following student data analysis.
+        Format the report with clear sections and professional language.
+        
+        Dataset Overview:
+        - Total Students: {len(df)}
+        - Students with Mental Health Issues: {df[df['predictions'] == 1].shape[0]}
+        - Students without Mental Health Issues: {df[df['predictions'] == 0].shape[0]}
         
         1. Executive Summary
-        2. Demographic Analysis: {stats['demographics']}
-        3. Academic Factors Analysis: {stats['academic']}
-        4. Financial Analysis: {stats['financial']}
-        5. Lifestyle Analysis: {stats['lifestyle']}
-        6. Psychological and Social Analysis: {stats['psychological']}
-        7. Percentages Summary
-        8. Key Findings
-        9. Recommendations
+        Provide a brief overview of key findings.
         
-        For each category, analyze the data based on the prediction values (0 or 1) indicating mental health issues.
+        2. Demographic Analysis
+        {json.dumps(stats['demographics'], indent=2)}
         
-        Example format:
+        3. Academic Factors Analysis
+        {json.dumps(stats['academic'], indent=2)}
         
-        BSc Computer Science (Analysis)
+        4. Financial Analysis
+        {json.dumps(stats['financial'], indent=2)}
         
-        Summary Metrics
-        • Total Records for BSc Computer Science: 37
-        • Predicted "Mental Health Proneness" (Predictions = 1): 7
-        • Predicted "Not Prone to Mental Health" (Predictions = 0): 30
+        5. Lifestyle and Behavioral Analysis
+        {json.dumps(stats['lifestyle'], indent=2)}
         
-        Age Group Distribution:
-        o 16–20 years: Majority of students (70%), with 90% classified as not prone (Prediction = 0). Only 10% classified as prone (Prediction = 1).
-        o 21–25 years: 20% of students, all predominantly classified as not prone.
-        o Evidence indicates that younger students face lower mental health proneness.
+        6. Psychological and Social Analysis
+        {json.dumps(stats['psychological'], indent=2)}
         
-        Financial Support and Financial Problems:
-        o Parent Support: 100% of students with parent support were classified as not prone (Prediction = 0).
-        o Student Loans: Represents 65% of students, with 85% classified as not prone and 15% prone. Financial dependency plays a role in mental health stability.
-        o Financial Problems: 80% of those facing financial problems (e.g., lower family income) were classified as prone to mental health issues (Prediction = 1).
+        7. Key Findings
+        Highlight the most significant correlations with mental health issues.
         
-        Stress Levels:
-        o Stress before exams: 90% reported stress, but only 15% were prone (Prediction = 1).
-        o Stress in general: 80% of students reported general stress, with a small correlation to being prone (20%).
+        8. Recommendations
+        Provide actionable recommendations for universities and students.
         
-        Employment Status:
-        o Unemployed Students: 90% classified as not prone. Lack of work may reduce mental health risk.
-        o Part-time/Full-time Jobs: 10% prone, possibly linked to time management and academic pressure.
-        
-        Diet and Exercise:
-        o Students with healthy diets and regular exercise were predominantly not prone (95%).
-        o Lack of hydration/alcohol consumption showed no strong correlation.
-        
-        Social Media and Device Use:
-        o High social media use (15+ hours weekly): 40% prone to mental health issues.
-        o Moderate use (8–15 hours weekly): 10% prone.
-        o Low use (<8 hours weekly): No correlation observed with mental health proneness.
-        
-        Family Earning Class:
-        o Lower Class: 60% prone.
-        o Middle Class: 90% not prone.
-        o Higher Class: 95% not prone. Economic stability correlates with mental health resilience.
-        
-        Gender Distribution:
-        o Female students: 15% prone (Prediction = 1).
-        o Male students: 5% prone.
-        o Other genders (e.g., Non-binary): Higher proneness (40%), though sample size is small.
-        
-        Evidenced-Based Conclusion
-        1. Age and Support Systems: Younger students (16–20 years) with adequate parental or financial support exhibit low mental health risks. Financial problems and lack of familial support significantly increase susceptibility.
-        2. Stress and Workload: General and exam-related stress are not sole predictors of mental health issues. However, combining high stress with heavy workloads (employment) amplifies risks.
-        3. Economic Class: Lower-income students face disproportionately higher mental health challenges, highlighting a critical area for intervention.
-        4. Social Media Influence: Excessive use (15+ hours) correlates with increased mental health issues. Moderation appears to offer protection.
-        5. Gender Differences: Females and non-binary individuals demonstrate higher vulnerability, suggesting gender-sensitive support mechanisms.
-        
-        Recommendations
-        1. Enhance Financial Support: Universities should prioritize financial aid, especially for lower-income and international students. Emergency grants and mental health funding should be streamlined.
-        2. Promote Balanced Lifestyles:
-        a. Campaigns promoting healthy diets, hydration, and regular exercise should be instituted.
-        b. Social media workshops to teach moderation and device-free time could mitigate digital stress.
-        3. Targeted Mental Health Resources:
-        a. Expand counseling and peer-support services, with a focus on gender-sensitive approaches.
-        b. Provide tailored support for part-time workers balancing employment and studies.
-        4. Monitor High-Risk Groups:
-        a. Track stress levels and workload in younger cohorts, offering early intervention.
-        b. Introduce mentorship programmes pairing upper-year students with first years for guidance.
-        5. Data-Driven Initiatives:
-        a. Conduct regular surveys and use predictive models to refine mental health strategies.
-        b. Integrate mental health modules into the academic curriculum for greater awareness.
-        
-        Generally
-        • Financial issues, stress, heavy social media usage, and limited physical activity are significant indicators of mental health proneness.
-        • Strengthening coping mechanisms and offering financial and mental health support could mitigate risks.
-        • Encouraging balanced lifestyles, reduced social media reliance, and physical activity can promote resilience.
+        Please format the report professionally with clear headings and bullet points where appropriate.
         """
 
-        # Generate report content
-        report_content = self.llm.generate_report(prompt)
+        report_content = self.llm.generate_report_content(prompt)
+        
+        print("Report content generated, length:", len(report_content))
 
         # Add content to PDF
         self.pdf.cell(200, 10, "Student Mental Health Analysis", 
                     new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+        self.pdf.ln(10)
         self.pdf.set_font('DejaVuLGCSans', '', 12)
-        self.pdf.multi_cell(0, 10, report_content)
 
-        # Debug: Print the number of charts to be processed
-        print(f"Number of charts to be processed: {len(chart_images)}")
+        # self.pdf.multi_cell(0, 10, report_content)
+        
+        # Split content into paragraphs and add to PDF
+        paragraphs = report_content.split('\n\n')
+        for paragraph in paragraphs:
+            if paragraph.strip():
+                # Check if it's a heading (starts with numbers or all caps)
+                if paragraph.strip().startswith(('1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.')):
+                    self.pdf.set_font('DejaVuLGCSans-Bold', '', 14)
+                    self.pdf.multi_cell(0, 10, paragraph.strip())
+                    self.pdf.ln(2)
+                    self.pdf.set_font('DejaVuLGCSans', '', 12)
+                else:
+                    self.pdf.multi_cell(0, 10, paragraph.strip())
+                    self.pdf.ln(2)
 
-        # Add provided chart images with text
-        for title, image in chart_images.items():
-            if isinstance(image, str) and image.startswith("data:image/png;base64,"):
-                # Generate a meaningful title or use a default title
-                chart_title = title if title != "[object HTMLDivElement]" else "Chart"
-                print(f"Adding chart image for: {chart_title}")
-                self.pdf.add_page()
-                self.add_image_with_text(image, f"Analysis for {chart_title.replace('_', ' ').title()}")
+        # Add charts if provided
+        if chart_images:
+            for title, image in chart_images.items():
+                if isinstance(image, str) and image.startswith("data:image/png;base64,"):
+                    chart_title = title if title != "[object HTMLDivElement]" else "Chart"
+                    self.pdf.add_page()
+                    self.add_image_with_text(image, f"Analysis for {chart_title.replace('_', ' ').title()}")
+            self.remove_temp_images()
 
         self.pdf.output(output_path)
         print(f"PDF report generated at: {output_path}")
