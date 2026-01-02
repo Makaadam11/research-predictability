@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { Paper, Typography, FormControl, Select, MenuItem, InputLabel, Checkbox, ListItemText, Collapse, Box } from '@mui/material';
+import { Paper, Typography, FormControl, Select, MenuItem, InputLabel, Checkbox, ListItemText, Collapse, Box, Chip } from '@mui/material';
 import type { DashboardData, FilterState } from '../../types/dashboard';
 import { loadDepartments } from '../../api/data';
 import { debounce } from 'lodash';
@@ -21,6 +21,23 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
   const [universities, setUniversities] = useState<string[]>([]);
   const [yearRange, setYearRange] = useState<{ start: Date | null, end: Date | null }>({ start: null, end: null });
   const [dataLoaded, setDataLoaded] = useState<boolean>(false);
+  const initializedRef = useRef(false);
+
+  // Cache for filtered data to avoid recalculating
+  const filteredDataCache = useRef<{
+    university: DashboardData[];
+    year: DashboardData[];
+    department: DashboardData[];
+  }>({
+    university: [],
+    year: [],
+    department: []
+  });
+  
+  const prevDepsRef = useRef<{ selectedUniversity: string | null, deptCount: number }>({ 
+    selectedUniversity: null, 
+    deptCount: 0 
+  });
   
   // Store the initial university from login data
   const [initialUniversity] = useState<string>(() => {
@@ -42,24 +59,6 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
     [onFilterChange]
   );
   
-  // Cache for filtered data to avoid recalculating
-  const filteredDataCache = useRef<{
-    university: DashboardData[];
-    year: DashboardData[];
-    department: DashboardData[];
-  }>({
-    university: [],
-    year: [],
-    department: []
-  });
-  
-  const initializedRef = useRef(false);
-  const prevDepsRef = useRef<{ selectedUniversity: string | null, deptCount: number }>({ 
-    selectedUniversity: null, 
-    deptCount: 0 
-  });
-
-  // Initialize university selection
   useEffect(() => {
     if (initializedRef.current) return;
   
@@ -87,6 +86,19 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
   
     initializeUniversity();
   }, []);
+
+  const hasSpecificUniversity = (): boolean => {
+    return initialUniversity !== 'All';
+  };
+
+  const handleUniversityChange = (newUniversity: string) => {
+    setSelectedUniversity(newUniversity);
+    
+    onUniversityChange(newUniversity);
+    
+    setSelectedDepartment([]);
+    onFilterChange('course_of_study', []);
+  };
   
   // Update department selection when university changes
   useEffect(() => {
@@ -277,7 +289,7 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
   }, [enhancedData, selectedUniversity, selectedYear, selectedDepartment, departments]);
 
   // Memoized unique values for performance
-  const uniqueValues = useMemo(() => {
+  const dashboardData = useMemo(() => {
     if (!dataLoaded) return {};
     
     const getUnique = (key: keyof DashboardData, filterFn = (x: any) => !!x): any[] => {
@@ -334,30 +346,6 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
       captured_at: getAcademicYearsList(filteredDataCache.current.university),
     };
   }, [filteredData, selectedUniversity, selectedDepartment, departments, dataLoaded]);
-
-  // Optimized filter count calculation
-  const getFilteredCount = useCallback((key: string, value: any): number => {
-    if (!dataLoaded) return 0;
-    
-    // Use cached filtered data for better performance
-    const baseData = filteredDataCache.current.department;
-    
-    // For 'all' value, return the total count of the filtered data
-    if (value === 'all') {
-      return baseData.length;
-    }
-    
-    // Count items where this specific field matches the value
-    return baseData.filter(item => {
-      const itemValue = item[key as keyof DashboardData];
-      
-      if (itemValue === null || itemValue === undefined) {
-        return value === null || value === undefined;
-      }
-      
-      return String(itemValue).toLowerCase() === String(value).toLowerCase();
-    }).length;
-  }, [dataLoaded]);
 
   // Optimized year counts calculation
   const getYearCounts = useCallback(() => {
@@ -462,23 +450,48 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
     }
   };
 
-  // Check if a user has a specific university assigned
-  const hasSpecificUniversity = (): boolean => {
-    return initialUniversity !== 'All';
-  };
+  // Optimized filter count calculation
+  const getFilteredDataCacheCount = useCallback((key: string, value: any = 'all'): number => {
+    if (!dataLoaded) return 0;
+    
+    // Use cached filtered data for better performance
+    const baseData = filteredDataCache.current.department;
+    
+    // For 'all' value, return the total count of the filtered data
+    if (value === 'all') {
+      return baseData.length;
+    }
+    
+    // Count items where this specific field matches the value
+    return baseData.filter(item => {
+      const itemValue = item[key as keyof DashboardData];
+      
+      if (itemValue === null || itemValue === undefined) {
+        return value === null || value === undefined;
+      }
+      
+      return String(itemValue).toLowerCase() === String(value).toLowerCase();
+    }).length;
+  }, [dataLoaded]);
 
-  // Optimized university selection handler
-  const handleUniversityChange = (newUniversity: string) => {
-    // Update the selected university state
-    setSelectedUniversity(newUniversity);
+  const getFilteredDataDynamicCount = useCallback((key: string, value: any = 'all'): number => {
+    const baseData = filteredData.filter(item => {
+      return Object.entries(filters).every(([filterKey, filterValues]) => {
+        if (filterKey === key) return true;
+        if (!filterValues || filterValues.length === 0) return true;
+        
+        const itemValue = item[filterKey as keyof DashboardData];
+        return filterValues.includes(String(itemValue));
+      });
+    });
+  
+    if (value === 'all') return baseData.length;
     
-    // Call the parent component's handler
-    onUniversityChange(newUniversity);
-    
-    // Reset department and course selections when university changes
-    setSelectedDepartment([]);
-    onFilterChange('course_of_study', []);
-  };
+    // Policz ile rekordów ma konkretną wartość
+    return baseData.filter(item => 
+      String(item[key as keyof DashboardData]).toLowerCase() === String(value).toLowerCase()
+    ).length;
+  }, [filteredData, filters, dataLoaded]);
 
   // Optimized select rendering
   const renderSelect = (key: string, values: any[]) => {
@@ -503,28 +516,20 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
       }
     };
 
-    // For courses, filter out those with 0 records
-    const filteredValues = key === 'course_of_study' 
-      ? values.filter(value => getFilteredCount(key, value) > 0)
-      : values;
+    const getCount = (value: any = 'all') => {
+      return key === 'course_of_study' 
+        ? getFilteredDataCacheCount(key, value)
+        : getFilteredDataDynamicCount(key, value);
+    };
+
+
+    const filteredValues = values.filter(value => getFilteredDataCacheCount(key, value) > 0)
       
-    // Apply search filter if there's a search term
     const searchFilteredValues = searchTerm 
       ? filteredValues.filter(value => 
           String(value).toLowerCase().includes(searchTerm.toLowerCase())
         )
       : filteredValues;
-
-    // Calculate the count of items that match all other filters
-    const getFilteredCountForAll = () => {
-      if (!dataLoaded) return 0;
-      
-      // Use cached filtered data for better performance
-      const baseData = filteredDataCache.current.department;
-      
-      // Count items that match all other filters except the current one
-      return baseData.length;
-    };
 
     const currentSelected = filters[key as keyof FilterState] || [];
 
@@ -548,8 +553,7 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
             },
           }}
         >
-          
-            <MenuItem value="all">
+          <MenuItem value="all">
             <Checkbox 
               checked={totalOptionsCount > 0 && selectedOptionsCount === totalOptionsCount}
               indeterminate={
@@ -557,11 +561,11 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
               selectedOptionsCount < totalOptionsCount
               }
             />
-            <ListItemText primary={`Select All (${getFilteredCountForAll()})`} />
-            </MenuItem>
+            <ListItemText primary={`Select All (${getCount()})`} />
+          </MenuItem>
           
           {searchFilteredValues.map((value, index) => {
-            const count = getFilteredCount(key, value);
+            const count = getCount(value);
             return (
               <MenuItem key={`${value}-${index}`} value={value}>
                 <Checkbox 
@@ -587,204 +591,214 @@ export const FilterPanel = ({ data, filters, onFilterChange, onYearChange, onUni
 
   return (
     <div>
-    <Paper sx={{ p: 2, fontFamily: 'Georgia, serif' }}>
-
-      <Typography variant="h5"  gutterBottom sx={{ textAlign: 'center', fontFamily: 'Georgia, serif' }}>
-        Filters
-      </Typography>
-
-      <FormControl fullWidth sx={{ mt: 1, mb: 1, minWidth: 200, maxWidth: '100%', fontFamily: 'Georgia, serif' }}>
-          <InputLabel sx={{ fontFamily: 'Georgia, serif' }}>University</InputLabel>
-          <Select
-            value={selectedUniversity}
-            onChange={(e) => handleUniversityChange(e.target.value)}
-            disabled={hasSpecificUniversity()}
-            sx={{ fontFamily: 'Georgia, serif' }}
-          >
-            {universities.map((university) => {
-              const counts = getUniversityCounts();
-              return (
-                <MenuItem key={university} value={university} sx={{ fontFamily: 'Georgia, serif' }}>
-                  {university} ({counts[university] || 0})
-                </MenuItem>
-              );
-            })}
-          </Select>
-        </FormControl>
+      <Paper sx={{ p: 2, fontFamily: 'Georgia, serif' }}>
+        <Typography variant="h5"  gutterBottom sx={{ textAlign: 'center', fontFamily: 'Georgia, serif' }}>
+          Filters
+        </Typography>
         
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+          <Chip 
+            label={`Filtered Records: ${filteredData.length}`} 
+            color="primary" 
+            sx={{ fontFamily: 'Georgia, serif' }}
+          />
+        </Box>
+
         <FormControl fullWidth sx={{ mt: 1, mb: 1, minWidth: 200, maxWidth: '100%', fontFamily: 'Georgia, serif' }}>
-          <InputLabel sx={{ fontFamily: 'Georgia, serif' }}>Year</InputLabel>
-          <Select
-            value={selectedYear}
-            onChange={(e) => {
-              const newYear = e.target.value;
-              onYearChange(newYear);
-            }}
-            sx={{ fontFamily: 'Georgia, serif' }}
-          >
-            {getAcademicYearsList(data).reverse().map((year) => {
-              const yearCounts = getYearCounts();
-              return (
-                <MenuItem key={year} value={year} sx={{ fontFamily: 'Georgia, serif' }}>
-                  {year} ({yearCounts[year] || 0} records)
-                </MenuItem>
-              );
-            })}
-          </Select>
-        </FormControl>
-        
-        {selectedUniversity && (
-          <Box style={{padding: 3}}>
-            <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', borderRadius: '5px', backgroundColor: '#ffff', fontFamily: 'Georgia, serif' }}>
-              Departments
-            </Typography>
-            <FormControl fullWidth sx={{ mt: 1, mb: 1, minWidth: 200, maxWidth: '100%', fontFamily: 'Georgia, serif' }}>
-              <InputLabel sx={{ fontFamily: 'Georgia, serif' }}>Department</InputLabel>
-                <Select
-                  multiple
-                  value={selectedDepartment}
-                  onChange={handleDepartmentChange}
-                  renderValue={(selected) => {
-                    if (selected.length === Object.keys(departments[selectedUniversity] || {}).length) {
-                      return "All";
-                    }
-                    return (selected as string[]).join(', ');
+            <InputLabel sx={{ fontFamily: 'Georgia, serif' }}>University</InputLabel>
+            <Select
+              value={selectedUniversity}
+              onChange={(e) => handleUniversityChange(e.target.value)}
+              disabled={hasSpecificUniversity()}
+              sx={{ fontFamily: 'Georgia, serif' }}
+            >
+              {universities.map((university) => {
+                const counts = getUniversityCounts();
+                return (
+                  <MenuItem key={university} value={university} sx={{ fontFamily: 'Georgia, serif' }}>
+                    {university} ({counts[university] || 0})
+                  </MenuItem>
+                );
+              })}
+            </Select>
+          </FormControl>
+          
+          <FormControl fullWidth sx={{ mt: 1, mb: 1, minWidth: 200, maxWidth: '100%', fontFamily: 'Georgia, serif' }}>
+            <InputLabel sx={{ fontFamily: 'Georgia, serif' }}>Year</InputLabel>
+            <Select
+              value={selectedYear}
+              onChange={(e) => {
+                const newYear = e.target.value;
+                onYearChange(newYear);
+              }}
+              sx={{ fontFamily: 'Georgia, serif' }}
+            >
+              {getAcademicYearsList(data).reverse().map((year) => {
+                const yearCounts = getYearCounts();
+                return (
+                  <MenuItem key={year} value={year} sx={{ fontFamily: 'Georgia, serif' }}>
+                    {year} ({yearCounts[year] || 0} records)
+                  </MenuItem>
+                );
+              })}
+            </Select>
+          </FormControl>
+          
+          {selectedUniversity && (
+            <Box style={{padding: 3}}>
+              <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', borderRadius: '5px', backgroundColor: '#ffff', fontFamily: 'Georgia, serif' }}>
+                Departments
+              </Typography>
+              <FormControl fullWidth sx={{ mt: 1, mb: 1, minWidth: 200, maxWidth: '100%', fontFamily: 'Georgia, serif' }}>
+                <InputLabel sx={{ fontFamily: 'Georgia, serif' }}>Department</InputLabel>
+                  <Select
+                    multiple
+                    value={selectedDepartment}
+                    onChange={handleDepartmentChange}
+                    renderValue={(selected) => {
+                      if (selected.length === Object.keys(departments[selectedUniversity] || {}).length) {
+                        return "All";
+                      }
+                      return (selected as string[]).join(', ');
+                    }}
+                    sx={{ fontFamily: 'Georgia, serif' }}
+                  >
+                  <MenuItem value="all" sx={{ fontFamily: 'Georgia, serif' }}>
+                    <Checkbox
+                      checked={selectedDepartment.length === Object.keys(departments[selectedUniversity] || {}).length}
+                      indeterminate={selectedDepartment.length > 0 && selectedDepartment.length < Object.keys(departments[selectedUniversity] || {}).length}
+                    />
+                    <ListItemText primary="All" sx={{ fontFamily: 'Georgia, serif' }} />
+                  </MenuItem>
+                  {Object.keys(departments[selectedUniversity] || {}).map((dept) => {
+                    const counts = getDepartmentCounts();
+                    if (counts[dept] === 0 || counts[dept] === undefined) return null;
+                    return (
+                      <MenuItem key={dept} value={dept} sx={{ fontFamily: 'Georgia, serif' }}>
+                        <Checkbox checked={selectedDepartment.includes(dept)} />
+                        <ListItemText primary={`(${counts[dept] || 0}) ${dept}`} sx={{ fontFamily: 'Georgia, serif' }} />
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+            </Box>
+          )}
+          {selectedDepartment.length > 0 && (
+            <Box style={{padding: 3}}>
+              <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', fontFamily: 'Georgia, serif'}}>
+                Courses
+              </Typography>
+
+                <input
+                  placeholder="Search courses..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  style={{ 
+                    width: '100%', 
+                    padding: '8px', 
+                    border: '1px solid #ccc', 
+                    borderRadius: '4px',
+                    fontFamily: 'Georgia, serif',
+                    marginBottom: "10px",
                   }}
-                  sx={{ fontFamily: 'Georgia, serif' }}
-                >
-                <MenuItem value="all" sx={{ fontFamily: 'Georgia, serif' }}>
-                  <Checkbox
-                    checked={selectedDepartment.length === Object.keys(departments[selectedUniversity] || {}).length}
-                    indeterminate={selectedDepartment.length > 0 && selectedDepartment.length < Object.keys(departments[selectedUniversity] || {}).length}
-                  />
-                  <ListItemText primary="All" sx={{ fontFamily: 'Georgia, serif' }} />
-                </MenuItem>
-                {Object.keys(departments[selectedUniversity] || {}).map((dept) => {
-                  const counts = getDepartmentCounts();
-                  return (
-                    <MenuItem key={dept} value={dept} sx={{ fontFamily: 'Georgia, serif' }}>
-                      <Checkbox checked={selectedDepartment.includes(dept)} />
-                      <ListItemText primary={`(${counts[dept] || 0}) ${dept}`} sx={{ fontFamily: 'Georgia, serif' }} />
-                    </MenuItem>
-                  );
-                })}
-              </Select>
-            </FormControl>
-          </Box>
-        )}
-        {selectedDepartment.length > 0 && (
-          <Box style={{padding: 3}}>
-            <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', fontFamily: 'Georgia, serif'}}>
-              Courses
-            </Typography>
+                />
+              
+              {renderSelect('course_of_study', dashboardData?.course_of_study || []) }
+            </Box>
+          )}
 
-              <input
-                placeholder="Search courses..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-                style={{ 
-                  width: '100%', 
-                  padding: '8px', 
-                  border: '1px solid #ccc', 
-                  borderRadius: '4px',
-                  fontFamily: 'Georgia, serif',
-                  marginBottom: "10px",
-                }}
-              />
-            
-            {renderSelect('course_of_study', uniqueValues?.course_of_study || []) }
-          </Box>
-        )}
-
-      <hr />
-      <Box onClick={() => toggleSection('demographics')} style={{cursor:'pointer', padding: 3}}>
-        <Typography variant="h6" gutterBottom>
-          Demographics
-        </Typography>
-      </Box>
-      <Collapse in={openSections['demographics']} sx={{ minWidth: 200, maxWidth: '100%' }}>
-        {renderSelect('ethnic_group', uniqueValues.ethnic_group?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('home_country', uniqueValues.home_country?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('age', uniqueValues.age?.sort((a, b) => a - b) || [])}
-        {renderSelect('gender', uniqueValues.gender?.filter(value => value !== 'Not Provided') || [])}
-      </Collapse>
-      
-      <hr />
-      <Box onClick={() => toggleSection('academicContext')} style={{cursor:'pointer' , padding: 3}}>
-        <Typography variant="h6" gutterBottom>
-          Academic Context
-        </Typography>
-      </Box>
-      <Collapse in={openSections['academicContext']} sx={{ width: '100%' }}>
-        {renderSelect('hours_between_lectures', uniqueValues.hours_between_lectures?.sort((a, b) => a - b) || [])}
-        {renderSelect('hours_per_week_lectures', uniqueValues.hours_per_week_lectures?.sort((a, b) => a - b) || [])}
-        {renderSelect('hours_per_week_university_work', uniqueValues.hours_per_week_university_work?.sort((a, b) => a - b) || [])}
-        {renderSelect('level_of_study', uniqueValues.level_of_study?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('timetable_preference', uniqueValues.timetable_preference?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('timetable_reasons', uniqueValues.timetable_reasons?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('timetable_impact', uniqueValues.timetable_impact?.filter(value => value !== 'Not Provided') || [])}
-      </Collapse>
-      
-      <hr />
-      <Box onClick={() => toggleSection('socioeconomicFactors')} style={{cursor:'pointer' , padding: 3}}>
-        <Typography variant="h6" gutterBottom>
-          Socioeconomic Factors
-        </Typography>
-      </Box>
-      <Collapse in={openSections['socioeconomicFactors']} sx={{ width: '100%' }}>
-        {renderSelect('financial_support', uniqueValues.financial_support?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('financial_problems', uniqueValues.financial_problems?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('family_earning_class', uniqueValues.family_earning_class?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('form_of_employment', uniqueValues.form_of_employment?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('work_hours_per_week', uniqueValues.work_hours_per_week?.sort((a, b) => a - b) || [])}
-        {renderSelect('cost_of_study', uniqueValues.cost_of_study?.sort((a, b) => a - b) || [])}
-      </Collapse>
-      
-      <hr />
-      <Box onClick={() => toggleSection('lifestyleAndBehaviour')} style={{cursor:'pointer', padding: 3}}>
-        <Typography variant="h6" gutterBottom>
-          Lifestyle and Behaviour
-        </Typography>
-      </Box>
-      <Collapse in={openSections['lifestyleAndBehaviour']} sx={{ width: '100%' }}>
-        {renderSelect('diet', uniqueValues.diet?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('well_hydrated', uniqueValues.well_hydrated?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('exercise_per_week', uniqueValues.exercise_per_week?.sort((a, b) => a - b) || [])}
-        {renderSelect('alcohol_consumption', uniqueValues.alcohol_consumption?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('personality_type', uniqueValues.personality_type?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('physical_activities', uniqueValues.physical_activities?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('mental_health_activities', uniqueValues.mental_health_activities?.filter(value => value !== 'Not Provided') || [])}
-      </Collapse>
-      
-      <hr />
-      <Box onClick={() => toggleSection('socialAndTechnologicalFactors')} style={{cursor:'pointer', padding: 3}}>
-        <Typography variant="h6" gutterBottom>
-          Social and Technological Factors
-        </Typography>
-      </Box>
-      <Collapse in={openSections['socialAndTechnologicalFactors']} sx={{ width: '100%' }}>
-        {renderSelect('hours_socialmedia', uniqueValues.hours_socialmedia?.sort((a, b) => a - b)|| [])}
-        {renderSelect('total_device_hours', uniqueValues.total_device_hours?.sort((a, b) => a - b)|| [])}
-        {renderSelect('hours_socialising', uniqueValues.hours_socialising?.sort((a, b) => a - b)|| [])}
-      </Collapse>
-      
-      <hr />
-      <Box onClick={() => toggleSection('psychologicalAndEmotionalFactors')} style={{cursor:'pointer', padding: 3}}>
-        <Typography variant="h6" gutterBottom>
-          Psychological and Emotional Factors
-        </Typography>
-      </Box>
-      <Collapse in={openSections['psychologicalAndEmotionalFactors']} sx={{ width: '100%' }}>
-        {renderSelect('quality_of_life', uniqueValues.quality_of_life?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('feel_afraid', uniqueValues.feel_afraid?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('stress_in_general', uniqueValues.stress_in_general || [])}
-        {renderSelect('stress_before_exams', uniqueValues.stress_before_exams?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('known_disabilities', uniqueValues.known_disabilities?.filter(value => value !== 'Not Provided') || [])}
-        {renderSelect('sense_of_belonging', uniqueValues.sense_of_belonging?.filter(value => value !== 'Not Provided')|| [])}
-      </Collapse>
-    </Paper>
+        <hr />
+        <Box onClick={() => toggleSection('demographics')} style={{cursor:'pointer', padding: 3}}>
+          <Typography variant="h6" gutterBottom>
+            Demographics
+          </Typography>
+        </Box>
+        <Collapse in={openSections['demographics']} sx={{ minWidth: 200, maxWidth: '100%' }}>
+          {
+    
+          renderSelect('ethnic_group', dashboardData.ethnic_group?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('home_country', dashboardData.home_country?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('age', dashboardData.age?.sort((a, b) => a - b) || [])}
+          {renderSelect('gender', dashboardData.gender?.filter(value => value !== 'Not Provided') || [])}
+        </Collapse>
+        
+        <hr />
+        <Box onClick={() => toggleSection('academicContext')} style={{cursor:'pointer' , padding: 3}}>
+          <Typography variant="h6" gutterBottom>
+            Academic Context
+          </Typography>
+        </Box>
+        <Collapse in={openSections['academicContext']} sx={{ width: '100%' }}>
+          {renderSelect('hours_between_lectures', dashboardData.hours_between_lectures?.sort((a, b) => a - b) || [])}
+          {renderSelect('hours_per_week_lectures', dashboardData.hours_per_week_lectures?.sort((a, b) => a - b) || [])}
+          {renderSelect('hours_per_week_university_work', dashboardData.hours_per_week_university_work?.sort((a, b) => a - b) || [])}
+          {renderSelect('level_of_study', dashboardData.level_of_study?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('timetable_preference', dashboardData.timetable_preference?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('timetable_reasons', dashboardData.timetable_reasons?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('timetable_impact', dashboardData.timetable_impact?.filter(value => value !== 'Not Provided') || [])}
+        </Collapse>
+        
+        <hr />
+        <Box onClick={() => toggleSection('socioeconomicFactors')} style={{cursor:'pointer' , padding: 3}}>
+          <Typography variant="h6" gutterBottom>
+            Socioeconomic Factors
+          </Typography>
+        </Box>
+        <Collapse in={openSections['socioeconomicFactors']} sx={{ width: '100%' }}>
+          {renderSelect('financial_support', dashboardData.financial_support?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('financial_problems', dashboardData.financial_problems?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('family_earning_class', dashboardData.family_earning_class?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('form_of_employment', dashboardData.form_of_employment?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('work_hours_per_week', dashboardData.work_hours_per_week?.sort((a, b) => a - b) || [])}
+          {renderSelect('cost_of_study', dashboardData.cost_of_study?.sort((a, b) => a - b) || [])}
+        </Collapse>
+        
+        <hr />
+        <Box onClick={() => toggleSection('lifestyleAndBehaviour')} style={{cursor:'pointer', padding: 3}}>
+          <Typography variant="h6" gutterBottom>
+            Lifestyle and Behaviour
+          </Typography>
+        </Box>
+        <Collapse in={openSections['lifestyleAndBehaviour']} sx={{ width: '100%' }}>
+          {renderSelect('diet', dashboardData.diet?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('well_hydrated', dashboardData.well_hydrated?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('exercise_per_week', dashboardData.exercise_per_week?.sort((a, b) => a - b) || [])}
+          {renderSelect('alcohol_consumption', dashboardData.alcohol_consumption?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('personality_type', dashboardData.personality_type?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('physical_activities', dashboardData.physical_activities?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('mental_health_activities', dashboardData.mental_health_activities?.filter(value => value !== 'Not Provided') || [])}
+        </Collapse>
+        
+        <hr />
+        <Box onClick={() => toggleSection('socialAndTechnologicalFactors')} style={{cursor:'pointer', padding: 3}}>
+          <Typography variant="h6" gutterBottom>
+            Social and Technological Factors
+          </Typography>
+        </Box>
+        <Collapse in={openSections['socialAndTechnologicalFactors']} sx={{ width: '100%' }}>
+          {renderSelect('hours_socialmedia', dashboardData.hours_socialmedia?.sort((a, b) => a - b)|| [])}
+          {renderSelect('total_device_hours', dashboardData.total_device_hours?.sort((a, b) => a - b)|| [])}
+          {renderSelect('hours_socialising', dashboardData.hours_socialising?.sort((a, b) => a - b)|| [])}
+        </Collapse>
+        
+        <hr />
+        <Box onClick={() => toggleSection('psychologicalAndEmotionalFactors')} style={{cursor:'pointer', padding: 3}}>
+          <Typography variant="h6" gutterBottom>
+            Psychological and Emotional Factors
+          </Typography>
+        </Box>
+        <Collapse in={openSections['psychologicalAndEmotionalFactors']} sx={{ width: '100%' }}>
+          {renderSelect('quality_of_life', dashboardData.quality_of_life?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('feel_afraid', dashboardData.feel_afraid?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('stress_in_general', dashboardData.stress_in_general || [])}
+          {renderSelect('stress_before_exams', dashboardData.stress_before_exams?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('known_disabilities', dashboardData.known_disabilities?.filter(value => value !== 'Not Provided') || [])}
+          {renderSelect('sense_of_belonging', dashboardData.sense_of_belonging?.filter(value => value !== 'Not Provided')|| [])}
+        </Collapse>
+      </Paper>
     </div>
   );
 };

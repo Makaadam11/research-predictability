@@ -187,14 +187,7 @@ const MentalHealthDashboard: React.FC = () => {
     return academicYear;
   };
 
-  const filteredData = useMemo(() => {
-    // console.log('Filtering data:', {
-    //   dataLength: data.length,
-    //   selectedYear,
-    //   selectedUniversity,
-    //   filters
-    // });
-  
+  const filteredData = useMemo(() => {  
     if (!Array.isArray(data) || data.length === 0) {
       console.log('No data to filter');
       return [];
