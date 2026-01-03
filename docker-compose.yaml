@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   backend:
     build: ./backend
@@ -12,6 +11,8 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+       - API_HOST=backend
     env_file: .env
     restart: unless-stopped
     ports:
