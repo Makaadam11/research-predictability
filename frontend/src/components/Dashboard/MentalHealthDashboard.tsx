@@ -98,17 +98,19 @@ const MentalHealthDashboard: React.FC = () => {
   };
 
   const handleGenerateReport = async () => {
-    setGeneratingReport(true); // Set loading state to true
+    setGeneratingReport(true);
     try {
       // const chartImages = await captureChartImages();
-      // console.log(`Number of charts being sent: ${Object.keys(chartImages).length}`);
-      const chartImages = await captureChartImages();
+      const chartImages: { [key: string]: string } = {};
       const response = await generateReport(filteredData, chartImages);
+
       alert('Report generated successfully');
       setReportUrl(response?.report_url);
+
     } catch (error) {
       console.error('Error generating report:', error);
       alert('Failed to generate report');
+
     } finally {
       setGeneratingReport(false); // Set loading state to false
     }
@@ -185,14 +187,7 @@ const MentalHealthDashboard: React.FC = () => {
     return academicYear;
   };
 
-  const filteredData = useMemo(() => {
-    // console.log('Filtering data:', {
-    //   dataLength: data.length,
-    //   selectedYear,
-    //   selectedUniversity,
-    //   filters
-    // });
-  
+  const filteredData = useMemo(() => {  
     if (!Array.isArray(data) || data.length === 0) {
       console.log('No data to filter');
       return [];
@@ -346,7 +341,7 @@ const MentalHealthDashboard: React.FC = () => {
             </Grid>
             ) : (
                 <>
-              <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} >
           <Demographics 
             key={`demographics-${selectedYear}-${filteredData.length}`}
             data={filteredData} 
@@ -374,7 +369,7 @@ const MentalHealthDashboard: React.FC = () => {
             chartRefs={lifestyleAndBehaviourRefs}
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} >
           <SocialAndTechnologicalFactors 
             key={`demographics-${selectedYear}-${filteredData.length}`}
             data={filteredData} 

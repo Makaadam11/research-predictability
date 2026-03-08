@@ -32,8 +32,7 @@ export const ExercisePerWeekChart = ({ data }: ExercisePerWeekChartProps) => {
     <ResponsiveContainer width="100%" height={350}>
       <LineChart data={groupedData}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="exercise_per_week" dy={10} height={50} interval={0}
-        label={{ value: 'Nr. of Exercises', position: 'Bottom', dy: 20 }}/>
+        <XAxis dataKey="exercise_per_week" dy={10} height={50} interval={0} label={{ value: 'Nr. of Exercises', position: 'Bottom', dy: 20 }}/>
         <YAxis 
             label={{ value: 'Nr. of Students', angle: -90, position: 'Center',dx: -20 }}
             interval={1}

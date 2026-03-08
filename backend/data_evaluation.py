@@ -1,54 +1,44 @@
+import os
+import joblib
+import warnings
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split, cross_val_score, RandomizedSearchCV
+from structs.columns import all_columns, numeric_columns, categorical_columns
+from imblearn.over_sampling import SMOTE
+from sklearn.model_selection import RandomizedSearchCV, cross_val_score
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
-from imblearn.over_sampling import SMOTE
 from sklearn.impute import SimpleImputer
-import joblib
-import warnings
-import os
 
-def clean_and_encode_data(df, numeric_features, categorical_features):
-    """Clean and encode all data before splitting"""
-    # Remove actual from numeric features if present
-    if 'actual' in numeric_features:
-        numeric_features.remove('actual')
-    
-    # Handle numeric features first
-    for col in numeric_features:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    
-    # Convert actual to numeric - simplified mapping
-    df['actual'] = df['actual'].map({'Yes': 1, 'No': 0, 1: 1, 0: 0})
-    
-    # Handle categorical features
-    encoders = {}
-    for col in categorical_features:
-        if col in df.columns:
-            df[col] = df[col].fillna(df[col].mode()[0])
-            df[col] = df[col].astype(str)
-            le = LabelEncoder()
-            df[col] = le.fit_transform(df[col])
-            encoders[col] = le
-            
-    return df, encoders
+PREPROCESSING_PATH = 'ml/preprocessing.sav'
+
+
+def get_feature_lists():
+    """Return the numeric and categorical feature lists used for ML."""
+    numeric_feats = numeric_columns.copy()
+    if 'actual' in numeric_feats:
+        numeric_feats.remove('actual')
+
+    categorical_feats = categorical_columns.copy()
+    categorical_feats.remove('timetable_reasons')
+    categorical_feats.remove('mental_health_activities')
+
+    return numeric_feats, categorical_feats
+
+
+EXCLUDE_COLUMNS = ['mental_health_activities', 'timetable_reasons', 'source', 'captured_at', 'predictions']
+
 
 def train_and_save_model(X_train, y_train, model_type='RandomForest', suffix=''):
-    """Train the model and save it to a .sav file"""
+    """Train a model via RandomizedSearchCV and save to disk."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        
-        if model_type.endswith('_smote') or model_type.endswith('_original'):
-            model_type = model_type.replace('_smote', '').replace('_original', '')
-        
+
         if model_type == 'RandomForest':
-            # Define the parameter grid for RandomizedSearchCV
             n_estimators = [int(x) for x in np.linspace(start=100, stop=1000, num=10)]
-            max_features = ['auto', 'sqrt', 'log2']
+            max_features = ['sqrt', 'log2']
             max_depth = [int(x) for x in np.linspace(10, 110, num=11)]
             max_depth.append(None)
             min_samples_split = [2, 5, 10]
@@ -62,17 +52,14 @@ def train_and_save_model(X_train, y_train, model_type='RandomForest', suffix='')
                 'min_samples_leaf': min_samples_leaf,
                 'bootstrap': bootstrap
             }
+            base_model = RandomForestClassifier(random_state=42)
 
-            # Perform RandomizedSearchCV to find the best parameters for RandomForest
-            rf = RandomForestClassifier()
-            model_random = RandomizedSearchCV(estimator=rf, param_distributions=random_grid, n_iter=100, cv=3, verbose=0, random_state=42, n_jobs=-1)
         elif model_type == 'NeuralNetwork':
-            # Define the parameter grid for RandomizedSearchCV
-            hidden_layer_sizes = [(50,50,50), (50,100,50), (100,), (150, 100, 50)]
+            hidden_layer_sizes = [(50, 50, 50), (50, 100, 50), (100,), (150, 100, 50)]
             activation = ['tanh', 'relu']
             solver = ['sgd', 'adam']
             alpha = [0.0001, 0.05, 0.01]
-            learning_rate = ['constant','adaptive']
+            learning_rate = ['constant', 'adaptive']
             random_grid = {
                 'hidden_layer_sizes': hidden_layer_sizes,
                 'activation': activation,
@@ -80,254 +67,200 @@ def train_and_save_model(X_train, y_train, model_type='RandomForest', suffix='')
                 'alpha': alpha,
                 'learning_rate': learning_rate
             }
-
-            # Perform RandomizedSearchCV to find the best parameters for MLPClassifier
-            model = MLPClassifier(max_iter=1000, early_stopping=True)
-            model_random = RandomizedSearchCV(estimator=model, param_distributions=random_grid, n_iter=100, cv=3, verbose=0, random_state=42, n_jobs=-1)
+            base_model = MLPClassifier(max_iter=1000, early_stopping=True, random_state=42)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
+        model_random = RandomizedSearchCV(
+            estimator=base_model,
+            param_distributions=random_grid,
+            n_iter=100, cv=3, verbose=0, random_state=42, n_jobs=-1
+        )
         model_random.fit(X_train, y_train)
         best_model = model_random.best_estimator_
 
-        # Save the model to disk with the suffix
-        model_filename = f'{model_type}_{suffix}_model.sav'
+        model_filename = f'ml/{model_type}_{suffix}_model.sav'
         joblib.dump(best_model, model_filename)
-        print(f"Saved {model_type} model to {model_filename}")
+        print(f"Saved {model_type} ({suffix}) model to {model_filename}")
 
-def evaluate_data(df, suppress_warnings=True):
-    if suppress_warnings:
-        warnings.filterwarnings('ignore')
-    
-    try:
-        # Define correct column names in order
-        correct_columns = [
-            'diet', 'ethnic_group', 'hours_per_week_university_work',
-            'family_earning_class', 'quality_of_life', 'alcohol_consumption',
-            'personality_type', 'stress_in_general', 'well_hydrated',
-            'exercise_per_week', 'known_disabilities', 'work_hours_per_week',
-            'financial_support', 'form_of_employment', 'financial_problems',
-            'home_country', 'age', 'course_of_study', 'stress_before_exams',
-            'feel_afraid', 'timetable_preference', 'timetable_reasons',
-            'timetable_impact', 'total_device_hours', 'hours_socialmedia',
-            'level_of_study', 'gender', 'physical_activities',
-            'hours_between_lectures', 'hours_per_week_lectures',
-            'hours_socialising', 'actual', 'student_type_time',
-            'student_type_location', 'cost_of_study', 'sense_of_belonging',
-            'mental_health_activities', 'source', 'predictions', 'captured_at'
-        ]
-        
-        # Set new column names
-        df.columns = correct_columns
-        print("Column names set successfully.")
-        
-        # Verify no quotes remain
-        if any("'" in col for col in df.columns):
-            print("Warning: Some columns still contain quotes")
-        
-        selected_numeric_features = [
-            'age', 'hours_socialising', 'hours_socialmedia', 
-            'total_device_hours', 'hours_per_week_university_work',
-            'exercise_per_week', 'work_hours_per_week',
-            'hours_between_lectures', 'hours_per_week_lectures',
-            'cost_of_study'
-        ]
-        
-        selected_categorical_features = [
-            'stress_in_general', 'stress_before_exams', 
-            'financial_problems', 'personality_type',
-            'quality_of_life', 'known_disabilities',
-            'diet', 'alcohol_consumption', 'well_hydrated',
-            'timetable_preference', 'physical_activities',
-            'form_of_employment', 'student_type_time',
-            'level_of_study', 'gender', 'ethnic_group',
-            'family_earning_class', 'financial_support',
-            'home_country', 'course_of_study', 'feel_afraid',
-            'timetable_impact', 'student_type_location',
-            'sense_of_belonging'
-        ]
 
-        # Verify required columns exist
-        missing_columns = [col for col in selected_numeric_features + selected_categorical_features + ['actual'] 
-                         if col not in df.columns]
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
-        print("Required columns verified successfully.")
+def train_all_models(data_path='../data/merged/merged_data.xlsx'):
+    """
+    Train all models on the FULL Yes/No dataset and save preprocessing artifacts.
+    Run this separately when you want to retrain models.
+    """
+    warnings.filterwarnings('ignore')
 
-        # Handle 'actual' column before other processing
-        if 'actual' in df.columns:
-            print("Processing 'actual' column...")
-            print("Original data shape:", df.shape)
-            print("Original actual value counts:")
-            print(df['actual'].value_counts())
-            
-            # Keep only Yes/No responses
-            df_yes_no = df[df['actual'].isin(['Yes', 'No', 1, 0])].copy()
-            df_yes_no['actual'] = df_yes_no['actual'].map({'Yes': 1, 'No': 0, 1: 1, 0: 0})
-            df_yes_no = df_yes_no.dropna(subset=['actual'])
-            
-            print("\nAfter filtering actual column:")
-            print("New data shape:", df_yes_no.shape)
-            print("New actual value counts:")
-            print(df_yes_no['actual'].value_counts())
-            
-            print("Processed 'actual' column successfully.")
+    # Load data with dual headers
+    df = pd.read_excel(data_path, header=[0, 1])
+    df.columns = all_columns
 
-        # Exclude specific columns
-        exclude_columns = ['mental_health_activities', 'timetable_reasons', 'source', 'captured_at']
-        df_yes_no = df_yes_no.drop(columns=[col for col in exclude_columns if col in df_yes_no.columns])
-        print("Excluded specific columns successfully.")
+    numeric_feats, categorical_feats = get_feature_lists()
 
-        # Preprocess entire dataset
-        df_yes_no, encoders = clean_and_encode_data(df_yes_no, selected_numeric_features, selected_categorical_features)
-        print("Preprocessed dataset successfully.")
-        
-        df_yes_no.to_excel('encoded_cleaned_data.xlsx', index=False)
-        print("Saved encoded and cleaned data to 'encoded_cleaned_data.xlsx'.")
-        
-        # Prepare features
-        X = df_yes_no[selected_numeric_features + selected_categorical_features]
-        y = df_yes_no['actual'].values
-        
-        # Verify we have data
-        if len(X) == 0:
-            raise ValueError("No valid data available for training")
-        
-        print(f"\nProcessed data statistics:")
-        print(f"Training data size: {len(X)}")
-        
-        # Train test split
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.25, random_state=42, stratify=y
-        )
-        
-        # Scale features
-        scaler = StandardScaler()
-        X_train_scaled = X_train.copy()
-        X_test_scaled = X_test.copy()
-        X_train_scaled[selected_numeric_features] = scaler.fit_transform(X_train[selected_numeric_features])
-        X_test_scaled[selected_numeric_features] = scaler.transform(X_test[selected_numeric_features])
-        
-        num_imputer = SimpleImputer(strategy='median')
-        X_train_scaled[selected_numeric_features] = num_imputer.fit_transform(X_train_scaled[selected_numeric_features])
-        X_test_scaled[selected_numeric_features] = num_imputer.transform(X_test_scaled[selected_numeric_features])
+    # Keep only Yes/No records for training
+    df_train = df[df['actual'].isin(['Yes', 'No', 1, 0])].copy()
+    df_train['actual'] = df_train['actual'].map({'Yes': 1, 'No': 0, 1: 1, 0: 0})
+    df_train = df_train.dropna(subset=['actual'])
 
-        
-        # Apply SMOTE to training data
+    print(f"Training data: {len(df_train)} records")
+    print(f"Class distribution:\n{df_train['actual'].value_counts()}")
+
+    # Drop non-feature columns
+    df_train = df_train.drop(columns=[c for c in EXCLUDE_COLUMNS if c in df_train.columns])
+
+    # Encode numeric
+    for col in numeric_feats:
+        if col in df_train.columns:
+            df_train[col] = pd.to_numeric(df_train[col], errors='coerce')
+
+    # Encode categorical - save encoders and mode values
+    encoders = {}
+    mode_values = {}
+    for col in categorical_feats:
+        if col in df_train.columns:
+            mode_val = str(df_train[col].mode().iloc[0])
+            mode_values[col] = mode_val
+            df_train[col] = df_train[col].fillna(mode_val).astype(str)
+            le = LabelEncoder()
+            df_train[col] = le.fit_transform(df_train[col])
+            encoders[col] = le
+
+    X = df_train[numeric_feats + categorical_feats]
+    y = df_train['actual'].values
+
+    # Impute missing numeric values
+    imputer = SimpleImputer(strategy='median')
+    X_imputed = pd.DataFrame(imputer.fit_transform(X), columns=X.columns, index=X.index)
+
+    # Scale numeric features only
+    scaler = StandardScaler()
+    X_scaled = X_imputed.copy()
+    X_scaled[numeric_feats] = scaler.fit_transform(X_imputed[numeric_feats])
+
+    # Save preprocessing artifacts
+    preprocessing = {
+        'encoders': encoders,
+        'mode_values': mode_values,
+        'scaler': scaler,
+        'imputer': imputer,
+        'numeric_features': numeric_feats,
+        'categorical_features': categorical_feats,
+    }
+    joblib.dump(preprocessing, PREPROCESSING_PATH)
+    print("Saved preprocessing artifacts.")
+
+    # Train models on full dataset (no train/test split - all data used for production)
+    X_values = X_scaled.values
+
+    for model_type in ['RandomForest', 'NeuralNetwork']:
+        # Original (no SMOTE)
+        print(f"\nTraining {model_type} (original) on {len(X_values)} samples...")
+        train_and_save_model(X_values, y, model_type, 'original')
+
+        # With SMOTE
         smote = SMOTE(random_state=42)
-        X_train_resampled, y_train_resampled = smote.fit_resample(X_train_scaled, y_train)
-        
-        print(f"Number of records before SMOTE: {len(X_train)}")
-        print(f"Number of records after SMOTE: {len(X_train_resampled)}")
-        
-        # Train and save models
-        models = ['RandomForest', 'NeuralNetwork']
-        
-        # train models only if needed
-        # for model_type in models:
-        #     # Train and save model without SMOTE
-        #     print(f"\nTraining and evaluating {model_type} model without SMOTE...")
-        #     train_and_save_model(X_train_scaled, y_train, model_type=f"{model_type}", suffix="original")
-            
-        #     # Train and save model with SMOTE
-        #     print(f"\nTraining and evaluating {model_type} model with SMOTE...")
-        #     train_and_save_model(X_train_resampled, y_train_resampled, model_type=f"{model_type}", suffix="smote")
-        
-        # Load model and predict
-        for model_type in models:
-            for smote_type in ['original', 'smote']:
-                model_filename = f'{model_type}_{smote_type}_model.sav'
-                if not os.path.exists(model_filename):
-                    raise FileNotFoundError(f"No such file or directory: '{model_filename}'")
-                model = joblib.load(model_filename)
-                
-                # Cross-validation scores
-                cv_scores = cross_val_score(model, X_train_scaled, y_train, cv=5)
-                print(f"Cross-validation accuracy for {model_type} ({smote_type}): {cv_scores.mean():.2f} (+/- {cv_scores.std() * 2:.2f})")
-                
-                # Train model
-                model.fit(X_train_scaled, y_train)
-                print(f"Trained {model_type} model ({smote_type}) successfully.")
-                
-                # Predictions on test set
-                y_test_pred = model.predict(X_test_scaled)
-                
-                # Calculate metrics for test set
-                print(f"\nTest Set Metrics for {model_type} ({smote_type}):")
-                print(f"Accuracy: {accuracy_score(y_test, y_test_pred):.2f}")
-                print(f"Precision: {precision_score(y_test, y_test_pred):.2f}")
-                print(f"Recall: {recall_score(y_test, y_test_pred):.2f}")
-                print(f"F1 Score: {f1_score(y_test, y_test_pred):.2f}")
-                print("\nConfusion Matrix:")
-                print(confusion_matrix(y_test, y_test_pred))
-                print("\nClassification Report:")
-                print(classification_report(y_test, y_test_pred))
-                
-                # Predictions on training set
-                y_train_pred = model.predict(X_train_scaled)
-                
-                # Calculate metrics for training set
-                print(f"\nTraining Set Metrics for {model_type} ({smote_type}):")
-                print(f"Accuracy: {accuracy_score(y_train, y_train_pred):.2f}")
-                print(f"Precision: {precision_score(y_train, y_train_pred):.2f}")
-                print(f"Recall: {recall_score(y_train, y_train_pred):.2f}")
-                print(f"F1 Score: {f1_score(y_train, y_train_pred):.2f}")
-                print("\nConfusion Matrix:")
-                print(confusion_matrix(y_train, y_train_pred))
-                print("\nClassification Report:")
-                print(classification_report(y_train, y_train_pred))
-        
-                # Prepare entire dataset for prediction
-        df_full, encoders = clean_and_encode_data(df, selected_numeric_features, selected_categorical_features)
-        X_full = df_full[selected_numeric_features + selected_categorical_features]
-        
-        # Define and fit the imputer
-        imputer = SimpleImputer(strategy='mean')
-        X_full = imputer.fit_transform(X_full)
-        
-        # Scale only the numeric features
-        X_full_scaled = X_full.copy()
-        X_full_scaled[:, :len(selected_numeric_features)] = scaler.transform(X_full[:, :len(selected_numeric_features)])
-        
-        df_full['predictions'] = model.predict(X_full_scaled)
-        
-        # Save results
-        df_full.to_excel('final_results.xlsx', index=False)
-        print("Saved final results to 'final_results.xlsx'.")
-        
-        print(f"\nFinal Results for {model_type}:")
-        print(f"Original diagnosed cases: {len(df_full[df_full['actual'] == 1])}")
-        print(f"Newly identified potential cases: {(df_full['predictions'] == 1).sum()}")
-        print(f"Total identified cases: {len(df_full[df_full['actual'] == 1]) + (df_full['predictions'] == 1).sum()}")
-        
-        # Print predictions count after evaluation
-        print("Predictions count after evaluation:")
-        print(df_full['predictions'].value_counts())
-        
-        # Print count of predictions equal to 0 and 1
-        print("Count of predictions equal to 0:", (df_full['predictions'] == 0).sum())
-        print("Count of predictions equal to 1:", (df_full['predictions'] == 1).sum())
-        
-        # Print count of predictions equal to 0 and 1
-        print("Count of predictions equal to 0:", (df_full['predictions'] == 0).sum())
-        print("Count of predictions equal to 1:", (df_full['predictions'] == 1).sum())
-        
-        # Print count of actual values equal to 0 and 1
-        if 'actual' in df_full.columns:
-            print("Count of actual values equal to 0:", (df_full['actual'] == 0).sum())
-            print("Count of actual values equal to 1:", (df_full['actual'] == 1).sum())
-        else:
-            print("Column 'actual' not found in df_full")
-        
-        return df_full
+        X_resampled, y_resampled = smote.fit_resample(X_values, y)
+        print(f"Training {model_type} (smote) on {len(X_resampled)} samples...")
+        train_and_save_model(X_resampled, y_resampled, model_type, 'smote')
 
-    except Exception as e:
-        print(f"Error in model evaluation: {str(e)}")
-        raise
-    finally:
-        if os.path.exists('final_results.xlsx'):
-            os.remove('final_results.xlsx')
-            print("Deleted 'final_results.xlsx' successfully.")
-        if os.path.exists('encoded_cleaned_data.xlsx'):
-            os.remove('encoded_cleaned_data.xlsx')
-            print("Deleted 'encoded_cleaned_data.xlsx' successfully.")
+    print("\nAll models trained and saved successfully.")
+
+
+def predict_new_data(df, model_name='RandomForest_smote'):
+    """
+    Predict mental health proneness for 'Prefer not to say' records.
+    Uses saved preprocessing artifacts and a pre-trained model.
+
+    Args:
+        df: DataFrame read with header=[0,1] from the merged Excel file.
+        model_name: Name of the model to use (e.g. 'RandomForest_smote').
+
+    Returns:
+        DataFrame with all_columns as headers and updated 'predictions' column.
+    """
+    warnings.filterwarnings('ignore')
+
+    df.columns = all_columns
+
+    # Load preprocessing artifacts
+    if not os.path.exists(PREPROCESSING_PATH):
+        raise FileNotFoundError(
+            f"Preprocessing artifacts not found at '{PREPROCESSING_PATH}'. "
+            "Run train_all_models() first."
+        )
+
+    preprocessing = joblib.load(PREPROCESSING_PATH)
+    encoders = preprocessing['encoders']
+    mode_values = preprocessing['mode_values']
+    scaler = preprocessing['scaler']
+    imputer = preprocessing['imputer']
+    numeric_feats = preprocessing['numeric_features']
+    categorical_feats = preprocessing['categorical_features']
+
+    # Set predictions based on known actual values
+    # Yes -> 1, No -> 0
+    known_yes = df['actual'].isin(['Yes', 1])
+    known_no = df['actual'].isin(['No', 0])
+    predict_mask = ~(known_yes | known_no)
+
+    df['predictions'] = 0
+    df.loc[known_yes, 'predictions'] = 1
+    df.loc[known_no, 'predictions'] = 0
+
+    if predict_mask.sum() == 0:
+        print("No 'Prefer not to say' records to predict.")
+        return df
+
+    print(f"Predicting for {predict_mask.sum()} 'Prefer not to say' records...")
+
+    # Prepare features for prediction rows only
+    df_predict = df.loc[predict_mask].copy()
+
+    # Numeric encoding
+    for col in numeric_feats:
+        if col in df_predict.columns:
+            df_predict[col] = pd.to_numeric(df_predict[col], errors='coerce')
+
+    # Categorical encoding using saved encoders
+    for col in categorical_feats:
+        if col in df_predict.columns:
+            mode_val = mode_values.get(col, '')
+            df_predict[col] = df_predict[col].fillna(mode_val).astype(str)
+            le = encoders[col]
+            # Handle unseen categories by mapping to 0 (most frequent encoded class)
+            df_predict[col] = df_predict[col].apply(
+                lambda x, _le=le: _le.transform([x])[0] if x in _le.classes_ else 0
+            )
+
+    X = df_predict[numeric_feats + categorical_feats].values
+
+    # Apply saved imputer and scaler (transform only, not fit)
+    X = imputer.transform(X)
+    X[:, :len(numeric_feats)] = scaler.transform(X[:, :len(numeric_feats)])
+
+    # Load pre-trained model and predict
+    model_path = f'ml/{model_name}_model.sav'
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model not found: '{model_path}'")
+
+    model = joblib.load(model_path)
+    predictions = model.predict(X)
+
+    df.loc[predict_mask, 'predictions'] = predictions
+
+    print(f"Predictions complete: {dict(pd.Series(predictions).value_counts())}")
+    print(f"  Predicted prone (1): {(predictions == 1).sum()}")
+    print(f"  Predicted not prone (0): {(predictions == 0).sum()}")
+
+    return df
+
+
+# Keep backward-compatible alias for existing imports
+def evaluate_data(df, suppress_warnings=True):
+    """Alias for predict_new_data for backward compatibility."""
+    return predict_new_data(df)
+
+
+if __name__ == "__main__":
+    print("Training all models on full dataset...")
+    train_all_models()

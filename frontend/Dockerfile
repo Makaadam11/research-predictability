@@ -1,16 +1,25 @@
-# Build stage
-FROM node:20-alpine AS build
-
+# deps
+FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
+
+# build
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG VITE_API_BASE_URL
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# Serve stage (nginx)
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-# Prosty fallback dla SPA
-RUN printf 'server { listen 80; server_name _; root /usr/share/nginx/html; index index.html; location / { try_files $uri /index.html; } }' > /etc/nginx/conf.d/default.conf
+# run
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+EXPOSE 3000
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/package*.json ./
+COPY --from=deps    /app/node_modules ./node_modules
+CMD ["npx","next","start","-p","3000","-H","0.0.0.0"]

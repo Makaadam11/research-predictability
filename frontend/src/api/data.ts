@@ -3,7 +3,6 @@ import { DashboardData } from '@/types/dashboard';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000';
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 export const submitQuestionaire = async (data: QuestionarieData) => {
   try {
@@ -16,7 +15,7 @@ export const submitQuestionaire = async (data: QuestionarieData) => {
 
 export const loadCourses = async (university: string): Promise<string[]> => {
   try {
-    const response = await fetch(`http://localhost:8000/api/courses/${university}`);
+    const response = await fetch(`/api/courses/${university}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch courses: ${response.statusText}`);
     }
@@ -34,7 +33,7 @@ export const loadDepartments = async (university: string): Promise<any> => {
     
     if (university === 'All') {
       // For "All", use the special endpoint
-      const response = await fetch(`http://localhost:8000/api/departments/All`);
+      const response = await fetch(`/api/departments/All`);
       if (!response.ok) {
         console.error(`Failed to fetch all departments: ${response.statusText}`);
         throw new Error(`Failed to fetch all departments: ${response.statusText}`);
@@ -44,7 +43,7 @@ export const loadDepartments = async (university: string): Promise<any> => {
       return data;
     } else {
       // For specific universities
-      const response = await fetch(`http://localhost:8000/api/departments/${university}`);
+      const response = await fetch(`/api/departments/${university}`);
       if (!response.ok) {
         console.error(`Failed to fetch departments for ${university}: ${response.statusText}`);
         throw new Error(`Failed to fetch departments: ${response.statusText}`);
@@ -62,7 +61,7 @@ export const loadDepartments = async (university: string): Promise<any> => {
 export async function getDashboardData(university: string = 'All'): Promise<any> {
   try {
     console.log(`Getting dashboard data for university: ${university}`);
-    const response = await fetch(`http://localhost:8000/api/dashboard?university=${university}`);
+    const response = await fetch(`/api/dashboard?university=${university}`);
     
     if (!response.ok) {
       const error = await response.text();
@@ -82,7 +81,7 @@ export async function getDashboardData(university: string = 'All'): Promise<any>
 export const generateReport = async (filteredData: DashboardData[], chartImages: { [key: string]: string }) => {
   try {
     if (!filteredData?.length) throw new Error('Invalid filtered data');
-    if (!chartImages || !Object.keys(chartImages).length) throw new Error('No chart images provided');
+    // if (!chartImages || !Object.keys(chartImages).length) throw new Error('No chart images provided');
 
     // Clean and transform the data
     const cleanedData = filteredData.map(item => ({
@@ -103,22 +102,19 @@ export const generateReport = async (filteredData: DashboardData[], chartImages:
     }));
 
     // Process and validate chart images
-    const processedChartImages = Object.fromEntries(
-      Object.entries(chartImages)
-        .filter(([_, value]) => value?.startsWith('data:image/'))
-        .map(([key, value]) => [key, value])
-    );
+    // const processedChartImages = Object.fromEntries(
+    //   Object.entries(chartImages)
+    //     .filter(([_, value]) => value?.startsWith('data:image/'))
+    //     .map(([key, value]) => [key, value])
+    // );
 
     const payload = {
       data: cleanedData,
-      charts: processedChartImages
+      charts: {}
+      // charts: processedChartImages
     };
 
-    // Debug: Print the number of charts being sent
-    console.log(`Number of charts being sent: ${Object.keys(processedChartImages).length}`);
-    console.log('Sending payload:', JSON.stringify(payload, null, 2));
-
-    const response = await fetch('http://localhost:8000/api/reports', {
+    const response = await fetch(`/api/reports`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -139,7 +135,7 @@ export const generateReport = async (filteredData: DashboardData[], chartImages:
 
 export const viewReport = async (timestamp: string): Promise<Blob> => {
   try {
-    const response = await axios.get(`http://localhost:8000/api/reports/view/${timestamp}`, {
+    const response = await axios.get(`/api/reports/view/${timestamp}`, {
       responseType: 'blob', // Important to handle binary data
     });
     return response.data;
@@ -151,7 +147,7 @@ export const viewReport = async (timestamp: string): Promise<Blob> => {
 
 export const deleteReport = async (timestamp: string): Promise<void> => {
   try {
-    await axios.delete(`http://localhost:8000/api/reports/delete/${timestamp}`);
+    await axios.delete(`/api/reports/delete/${timestamp}`);
   } catch (error  : any) {
     console.error('Error deleting report:', error);
     throw new Error(`Failed to delete report: ${error.message}`);

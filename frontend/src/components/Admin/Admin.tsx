@@ -30,7 +30,7 @@ export const AdminPanel = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="my-20 flex items-center justify-center bg-gray-100">
       <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-md">
         <h2 className="text-2xl font-bold mb-6 text-center">Admin Panel</h2>
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -48,7 +48,7 @@ export const AdminPanel = () => {
             {errors.email && <p className="text-red-500">{errors.email.message}</p>}
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="password" className="block mt-3 text-sm font-medium text-gray-700">
               Password
             </label>
             <input
@@ -61,7 +61,7 @@ export const AdminPanel = () => {
             {errors.password && <p className="text-red-500">{errors.password.message}</p>}
           </div>
           <div>
-            <label htmlFor="university" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="university" className="block mt-3 text-sm font-medium text-gray-700">
               University
             </label>
             <select
@@ -77,7 +77,7 @@ export const AdminPanel = () => {
             {errors.university && <p className="text-red-500">{errors.university.message}</p>}
           </div>
           <div>
-            <label htmlFor="isAdmin" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="isAdmin" className="block mt-3 text-sm font-medium text-gray-700">
               Is Admin
             </label>
             <input
@@ -92,7 +92,7 @@ export const AdminPanel = () => {
           {registerSuccess && <p className="text-green-500">{registerSuccess}</p>}
           <button
             type="submit"
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="w-full mt-3 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             disabled={isLoading}
           >
             {isLoading ? 'Registering...' : 'Register'}

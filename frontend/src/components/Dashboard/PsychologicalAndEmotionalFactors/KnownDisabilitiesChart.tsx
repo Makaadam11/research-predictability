@@ -7,8 +7,23 @@ interface KnownDisabilitiesChartProps {
 }
 
 export const KnownDisabilitiesChart = ({ data }: KnownDisabilitiesChartProps) => {
+
+    if (!data || data.length === 0) {
+    return (
+      <Box>
+        <Typography variant="h6" align="center" gutterBottom>
+          Known Disabilities
+        </Typography>
+        <Typography variant="body2" align="center" color="text.secondary">
+          No data available
+        </Typography>
+      </Box>
+    );
+  }
+
   const groupedData = data.reduce((acc, curr) => {
-    if (curr.known_disabilities === "Not Provided") return
+    if (!curr.known_disabilities) return acc;
+
     const group = acc.find(item => item.known_disabilities === curr.known_disabilities);
     if (group) {
       group[curr.predictions === 1 ? 'prediction_1' : 'prediction_0'] += 1;
@@ -21,11 +36,23 @@ export const KnownDisabilitiesChart = ({ data }: KnownDisabilitiesChartProps) =>
     }
     return acc;
   }, [] as { known_disabilities: string; prediction_0: number; prediction_1: number }[]);
+ 
+  if (groupedData.length === 0) {
+    return (
+      <Box>
+        <Typography variant="h6" align="center" gutterBottom>
+          Known Disabilities
+        </Typography>
+        <Typography variant="body2" align="center" color="text.secondary">
+          No valid data to display
+        </Typography>
+      </Box>
+    );
+  }
+
   const truncateLabel = (label: string, maxLength: number) => {
     return label.length > maxLength ? `${label.substring(0, maxLength)}..` : label;
   };
- 
-	
  
   return (
     <Box>

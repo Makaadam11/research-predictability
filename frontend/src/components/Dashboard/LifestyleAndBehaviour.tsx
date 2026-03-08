@@ -49,7 +49,7 @@ export const LifestyleAndBehaviour = ({ data, chartRefs }: LifestyleAndBehaviour
   return (
     <div>
     <Box sx={{ p: 2, border: '8px solid #ccc', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
-      <Typography variant="h5" gutterBottom sx={{ textAlign: 'center', border: '1px solid #ccc', borderRadius: '8px', backgroundColor: '#ffff' }}>
+      <Typography variant="h5" gutterBottom sx={{ cursor: 'pointer', textAlign: 'center', border: '1px solid #ccc', borderRadius: '8px', backgroundColor: '#ffff' }}>
         Lifestyle and Behaviour
       </Typography>
       <Grid container spacing={2}>

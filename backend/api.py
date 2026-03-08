@@ -1,25 +1,31 @@
+import asyncio
 import base64
-from io import BytesIO
-import json
-from PIL import Image
-from typing import Dict
-from datetime import datetime
-from fastapi import FastAPI, HTTPException, Depends, Request, Query, Response
-from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, validator
-from typing import List, Dict, Union
+import hashlib
 import logging
-from pydantic import BaseModel
-from typing import List
-import pandas as pd
-from reports import Reports
-from models import GoogleFormsTranslationMap, QuestionnaireDataModel, DashboardDataModel
-from fastapi.middleware.cors import CORSMiddleware
 import os
-from data_processor import DataProcessor
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
+from typing import Dict, List
+
+import pandas as pd
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, field_validator
+
+from models.account import LoginForm, RegisterForm
+from models.course import CourseResponse
+from models.department import DepartmentCoursesResponse
+from models.questionnaire import QuestionnaireDataModel
+from models.report import ReportRequest
+from data_processor import DataProcessor
+from reports import Reports
 
 app = FastAPI()
+
+executor = ThreadPoolExecutor(max_workers=5)
 
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
@@ -32,6 +38,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight responses for 1 hour
 )
 
 BASIC_USER = os.environ.get("BASIC_AUTH_USER")
@@ -41,83 +49,31 @@ WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET")
 
 base_path = Path("../data")
 
-class RegisterFormInputs(BaseModel):
-    email: str
-    password: str
-    isAdmin: bool
-class LoginFormInputs(BaseModel):
-    email: str
-    password: str
-
-class CourseResponse(BaseModel):
-    courses: List[str]
-    university: str
-    
-class DepartmentCoursesResponse(BaseModel):
-    departments: Dict[str, List[str]]
-
-class FilePath(BaseModel):
-    path: str
-
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class DashboardData(BaseModel):
-    diet: str
-    ethnic_group: str
-    hours_per_week_university_work: float
-    family_earning_class: str
-    quality_of_life: str
-    alcohol_consumption: str
-    personality_type: str
-    stress_in_general: str
-    well_hydrated: str
-    exercise_per_week: float
-    known_disabilities: str
-    work_hours_per_week: float
-    financial_support: str
-    form_of_employment: str
-    financial_problems: str
-    home_country: str
-    age: float
-    course_of_study: str
-    stress_before_exams: str
-    feel_afraid: str
-    timetable_preference: str
-    timetable_reasons: str
-    timetable_impact: str
-    total_device_hours: float
-    hours_socialmedia: float
-    level_of_study: str
-    gender: str
-    physical_activities: str
-    hours_between_lectures: float
-    hours_per_week_lectures: float
-    hours_socialising: float
-    actual: str
-    student_type_time: str
-    student_type_location: str
-    cost_of_study: float
-    sense_of_belonging: str
-    mental_health_activities: str
-    predictions: float
-    captured_at: str
-class ReportRequest(BaseModel):
-    data: List[DashboardData]
-    charts: Dict[str, str]
+# class RateLimitMiddleware(BaseHTTPMiddleware):
+#     def __init__(self, app, max_concurrent=5):
+#         super().__init__(app)
+#         self.semaphore = asyncio.Semaphore(max_concurrent)
 
-    @validator('charts')
-    def validate_charts(cls, v):
-        for key, value in v.items():
-            if not value.startswith('data:image'):
-                raise ValueError(f'Invalid image format for {key}')
-        return v
+#     async def dispatch(self, request: Request, call_next):
+#         async with self.semaphore:
+#             return await call_next(request)
+
+# app.add_middleware(
+#     RateLimitMiddleware,
+#     max_concurrent=5
+# )
 
 @app.middleware("http")
 async def security_gate(request: Request, call_next):
     path = request.url.path
 
+    if request.method == "OPTIONS":
+        response = await call_next(request)
+        return response
+    
     public_prefixes = (
         "/api/login",
         "/api/register",
@@ -174,21 +130,24 @@ async def submit_questionaire(university: str, data: QuestionnaireDataModel):
 @app.post("/api/reports")
 async def generate_reports(request: ReportRequest):
     try:
-        df = pd.DataFrame([item.dict() for item in request.data])
-        reports = Reports(df)
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        reports: Reports = Reports()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        async def generate_in_background():
+            report_df = pd.DataFrame([data.model_dump() for data in request.data])
+            output_path = f"{base_path}/reports/Mental_Health_Report_{timestamp}.pdf"
+
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                executor,
+                reports.generate_report_pdf,
+                report_df,
+                output_path,
+                # request.charts
+            )
         
-        # Decode chart images
-        chart_images = {}
-        for key, chart in request.charts.items():
-            if isinstance(chart, str) and chart.startswith("data:image/png;base64,"):
-                chart_images[key] = chart
-        
-        # Generate PDF report and save it temporarily
-        report_path = f"{base_path}/reports/Mental_Health_Report_{timestamp}.pdf"
-        reports.generate_pdf_report(report_path, chart_images)
-        
+        await generate_in_background()
         return {"message": "Report generated", "report_url": f"/api/reports/view/{timestamp}"}
+        
     except Exception as e:
         logger.error(f"Error generating report: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -209,7 +168,6 @@ async def delete_report(timestamp: str):
         return {"message": "Report deleted"}
     else:
         raise HTTPException(status_code=404, detail="Report not found")
-    
 
 @app.get("/api/universities", response_model=List[str])
 async def get_universities():
@@ -244,6 +202,7 @@ async def get_universities():
         print(f"Error in get_universities: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+    
 @app.get("/api/courses/{university}", response_model=CourseResponse)
 async def get_courses(university: str):
     try:
@@ -361,28 +320,21 @@ def get_user_data():
         return pd.DataFrame(columns=["email", "password", "isAdmin", "university"])
 
 @app.post("/api/login")
-async def login(data: LoginFormInputs):
+async def login(data: LoginForm):
     try:
         df = get_user_data()
-        print("Input data:", data.email, data.password)
-        print("DataFrame before comparison:", df)
         
-        # Convert values to string and handle NaN
         df['email'] = df['email'].fillna('').astype(str)
         df['password'] = df['password'].fillna('').astype(str)
         df['university'] = df['university'].fillna('').astype(str)
         
-        # Clean input data
         clean_email = str(data.email).strip()
         clean_password = str(data.password).strip()
         
-        # Compare values
         user = df[
             (df['email'].str.strip() == clean_email) & 
             (df['password'].str.strip() == clean_password)
         ]
-        
-        # print("Matched user:", user)
         
         if not user.empty:
             return {
@@ -403,7 +355,7 @@ def save_user_data(df):
     df.to_excel(file_path, index=False)
 
 @app.post("/api/register")
-async def register(data: RegisterFormInputs):
+async def register(data: RegisterForm):
     try:
         df = get_user_data()
         print("Registration attempt for:", data.email)
@@ -468,10 +420,22 @@ def process_excel_data(df: pd.DataFrame) -> pd.DataFrame:
         if col not in numeric_columns:
             df[col] = df[col].fillna('Not Provided')
     
-    # print("Processed columns:", df.columns.tolist())
-    # print("Data types:", df.dtypes)
-    
     return df
+
+@lru_cache(maxsize=10)
+def get_cached_dashboard_data(university: str, file_hash: str):
+    """Cache dashboard data by university and file modification time"""
+    file_path = f"{base_path}/merged/merged_data.xlsx"
+    df = pd.read_excel(file_path, header=None)
+    column_ids = df.iloc[1].copy()
+    df_cleaned = df.iloc[2:] 
+    df_cleaned.columns = column_ids
+    df_processed = process_excel_data(df_cleaned)
+    
+    if university != 'All':
+        df_processed = df_processed[df_processed['source'] == university]
+    
+    return df_processed.to_dict('records')
 
 @app.get("/api/dashboard")
 async def get_dashboard_data(university: str = Query(None)):
@@ -480,18 +444,14 @@ async def get_dashboard_data(university: str = Query(None)):
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="Data file not found")
         
-        df = pd.read_excel(file_path, header=None)
-        print("Original columns:", df.columns.tolist())
-        column_ids = df.iloc[1].copy()
-        df_cleaned = df.iloc[2:] 
-        df_cleaned.columns = column_ids
+        file_mtime = os.path.getmtime(file_path)
+        file_hash = hashlib.md5(f"{file_path}{file_mtime}".encode()).hexdigest()
         
-        df_processed = process_excel_data(df_cleaned)
-        
-        if university and university != 'All':
-            df_processed = df_processed[df_processed['source'] == university]
-        
-        data = df_processed.to_dict('records')
+        data = await asyncio.to_thread(
+            get_cached_dashboard_data,
+            university or 'All',
+            file_hash
+        )
         
         return {"data": data}
         
